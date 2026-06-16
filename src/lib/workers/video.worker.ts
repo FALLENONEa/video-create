@@ -120,7 +120,9 @@ async function generateVideoForPanel(
         ? firstLastFramePayload.flModel
         : modelId
     const firstLastFrameCapabilities = resolveBuiltinCapabilitiesByModelKey('video', model)
-    if (firstLastFrameCapabilities?.video?.firstlastframe !== true) {
+    // 内置模型：尊重能力声明，明确不支持才拒绝；自定义模型（openai-compatible 等）能力不由内置表决定，
+    // 而由用户声明的 capabilities + template 共同决定，UI 已用声明能力过滤可选模型，此处放行。
+    if (firstLastFrameCapabilities && firstLastFrameCapabilities.video?.firstlastframe !== true) {
       throw new Error(`VIDEO_FIRSTLASTFRAME_MODEL_UNSUPPORTED: ${model}`)
     }
     if (

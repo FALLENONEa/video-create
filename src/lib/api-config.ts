@@ -12,6 +12,8 @@ import { decryptApiKey } from './crypto-utils'
 import {
   composeModelKey,
   parseModelKeyStrict,
+  validateModelCapabilities,
+  type ModelCapabilities,
   type UnifiedModelType,
 } from './model-config-contract'
 import type {
@@ -31,6 +33,7 @@ export interface CustomModel {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  capabilities?: ModelCapabilities
   // Non-authoritative display field; billing uses unified server pricing catalog.
   price: number
 }
@@ -241,6 +244,17 @@ function normalizeStoredModel(raw: unknown, index: number): CustomModel {
     ? compatMediaTemplateSourceRaw
     : undefined
 
+  // 自定义模型可声明能力（如视频首尾帧开关），内置模型由目录决定；此处仅做合法性校验。
+  const capabilitiesRaw = raw.capabilities
+  let capabilities: ModelCapabilities | undefined
+  if (capabilitiesRaw !== undefined && capabilitiesRaw !== null) {
+    const issues = validateModelCapabilities(raw.type, capabilitiesRaw)
+    if (issues.length > 0) {
+      throw new Error(`MODEL_CAPABILITIES_INVALID: models[${index}].capabilities: ${issues[0]?.message ?? 'invalid shape'}`)
+    }
+    capabilities = capabilitiesRaw as ModelCapabilities
+  }
+
   return {
     modelId,
     modelKey,
@@ -252,6 +266,7 @@ function normalizeStoredModel(raw: unknown, index: number): CustomModel {
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
     ...(compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt } : {}),
     ...(compatMediaTemplateSource ? { compatMediaTemplateSource } : {}),
+    ...(capabilities ? { capabilities } : {}),
     price: 0,
   }
 }

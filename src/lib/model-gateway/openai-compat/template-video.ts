@@ -51,11 +51,20 @@ export async function generateVideoViaOpenAICompatTemplate(
   }
 
   const config = await resolveOpenAICompatClientConfig(request.userId, request.providerId)
+  const videoOptions = request.options || {}
+  // worker 仅在首尾帧模式下传入 lastFrameImageUrl（normal 不传），以其存在作为首尾帧信号。
+  // 智谱 CogVideoX-3 等 provider 用 image_url 字段承载图：单图为单元素数组 [首帧]、
+  // 首尾帧为 [首帧, 尾帧]，靠数组元素数量区分。故 images 变量始终为数组，bodyTemplate 用 {{images}}。
+  const lastFrameImageUrl = typeof videoOptions.lastFrameImageUrl === 'string' ? videoOptions.lastFrameImageUrl.trim() : ''
+  const isFirstLastFrame = lastFrameImageUrl.length > 0
+  const imageVariable: string | string[] = isFirstLastFrame
+    ? [request.imageUrl, lastFrameImageUrl]
+    : request.imageUrl
   const variables = buildTemplateVariables({
     model: request.modelId || '',
     prompt: request.prompt,
-    image: request.imageUrl,
-    images: [request.imageUrl],
+    image: imageVariable,
+    images: isFirstLastFrame ? [request.imageUrl, lastFrameImageUrl] : [request.imageUrl],
     aspectRatio: typeof request.options?.aspectRatio === 'string' ? request.options.aspectRatio : undefined,
     resolution: typeof request.options?.resolution === 'string' ? request.options.resolution : undefined,
     size: typeof request.options?.size === 'string' ? request.options.size : undefined,

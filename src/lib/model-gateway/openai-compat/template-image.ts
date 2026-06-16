@@ -36,12 +36,33 @@ function resolveModelRef(request: OpenAICompatImageRequest): string {
   throw new Error('OPENAI_COMPAT_IMAGE_MODEL_REF_REQUIRED')
 }
 
+/**
+ * 从可能包含 Markdown 图片语法的文本中提取图片地址（data URI / URL / 绝对路径）。
+ * 适配 chat-completions 协议生图：message.content 常为 "![alt](data:image/png;base64,...)"
+ * 或 "![alt](https://...)"；若文本本身已是合法图片地址则原样返回。
+ */
+function extractImageSrcsFromText(text: string): string[] {
+  const result: string[] = []
+  const mdImage = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g
+  let m: RegExpExecArray | null
+  while ((m = mdImage.exec(text)) !== null) {
+    const src = m[1].trim()
+    if (src) result.push(src)
+  }
+  if (result.length > 0) return result
+  const trimmed = text.trim()
+  if (/^(data:|https?:|\/)/i.test(trimmed)) {
+    return [trimmed]
+  }
+  return []
+}
+
 function readTemplateOutputUrls(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   const urls: string[] = []
   for (const item of value) {
     if (typeof item === 'string' && item.trim()) {
-      urls.push(item.trim())
+      urls.push(...extractImageSrcsFromText(item.trim()))
       continue
     }
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue
@@ -113,9 +134,13 @@ export async function generateImageViaOpenAICompatTemplate(
 
     const outputUrl = readJsonPath(payload, request.template.response.outputUrlPath)
     if (typeof outputUrl === 'string' && outputUrl.trim().length > 0) {
-      return {
-        success: true,
-        imageUrl: outputUrl.trim(),
+      const extracted = extractImageSrcsFromText(outputUrl.trim())
+      if (extracted.length > 0) {
+        return {
+          success: true,
+          imageUrl: extracted[0],
+          ...(extracted.length > 1 ? { imageUrls: extracted } : {}),
+        }
       }
     }
     throw new Error('OPENAI_COMPAT_IMAGE_TEMPLATE_OUTPUT_NOT_FOUND')

@@ -86,7 +86,9 @@ function validateFirstLastFrameModel(input: unknown) {
   }
 
   const capabilities = resolveBuiltinCapabilitiesByModelKey('video', flModel)
-  if (capabilities?.video?.firstlastframe !== true) {
+  // 内置模型：尊重能力声明，明确不支持才拒绝；自定义模型（openai-compatible 等）能力不由内置表决定，
+  // 由用户声明的 capabilities + template 决定，UI 已用声明能力过滤可选模型，此处放行（与 worker 一致）。
+  if (capabilities && capabilities.video?.firstlastframe !== true) {
     throw new ApiError('INVALID_PARAMS', {
       code: 'FIRSTLASTFRAME_MODEL_UNSUPPORTED',
       field: 'firstLastFrame.flModel',

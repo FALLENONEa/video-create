@@ -431,11 +431,33 @@ export async function touchTaskHeartbeat(taskId: string) {
 }
 
 export async function tryUpdateTaskProgress(taskId: string, progress: number, payload?: Record<string, unknown> | null) {
+  if (!payload) {
+    const result = await taskModel.updateMany({
+      where: activeTaskWhere(taskId),
+      data: { progress },
+    })
+    return result.count > 0
+  }
+  // 进度更新 merge 进现有 payload，而非整体覆盖。task.payload 同时承载任务输入
+  // （videoModel/prompt/meta.locale 等业务字段）与运行时进度（stage/stageLabel/...），
+  // 覆盖式写入会冲掉 meta.locale，导致二次提交的 dedupe 复检或服务重启扫描（hasTaskLocale）
+  // 误判任务缺 locale，进而 failTaskWithMissingLocale → TASK_LOCALE_REQUIRED 失败。
+  const existing = await withPrismaRetry(() =>
+    taskModel.findUnique({
+      where: { id: taskId },
+      select: { payload: true },
+    }),
+  )
+  const existingPayload =
+    existing?.payload && typeof existing.payload === 'object' && !Array.isArray(existing.payload)
+      ? (existing.payload as Record<string, unknown>)
+      : {}
+  const merged = { ...existingPayload, ...payload }
   const result = await taskModel.updateMany({
     where: activeTaskWhere(taskId),
     data: {
       progress,
-      ...(payload ? { payload: toNullableJson(payload) } : {}),
+      payload: toNullableJson(merged),
     },
   })
   return result.count > 0

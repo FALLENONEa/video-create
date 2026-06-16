@@ -425,7 +425,7 @@ export function normalizeResponseJson(rawText: string): unknown {
 export function buildTemplateVariables(input: {
   model: string
   prompt: string
-  image?: string
+  image?: string | string[]
   images?: string[]
   aspectRatio?: string
   duration?: number

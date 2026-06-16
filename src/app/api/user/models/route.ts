@@ -2,7 +2,8 @@
  * 获取用户的模型列表
  *
  * 返回用户在个人中心启用的模型，供项目配置下拉框使用。
- * capabilities 仅来自系统内置目录（不信任用户提交的 model.capabilities）。
+ * capabilities 优先取系统内置目录；内置未收录的自定义模型，信任用户声明的
+ * model.capabilities（用于首尾帧等自定义模型才有的能力开关）。
  */
 
 import { NextResponse } from 'next/server'
@@ -28,6 +29,7 @@ interface StoredModel {
   name?: string
   type?: StoredModelType
   provider?: string
+  capabilities?: ModelCapabilities
 }
 
 interface StoredProvider {
@@ -216,9 +218,12 @@ export const GET = apiHandler(async () => {
     }
 
     if (provider && modelId) {
-      const capabilities = findBuiltinCapabilities(modelType, provider, modelId)
-      if (capabilities) {
-        option.capabilities = capabilities
+      // 内置模型优先用内置能力目录；自定义模型（内置未收录）信任用户声明的 capabilities
+      const builtinCapabilities = findBuiltinCapabilities(modelType, provider, modelId)
+      if (builtinCapabilities) {
+        option.capabilities = builtinCapabilities
+      } else if (model.capabilities) {
+        option.capabilities = model.capabilities
       }
 
       if (modelType === 'video') {

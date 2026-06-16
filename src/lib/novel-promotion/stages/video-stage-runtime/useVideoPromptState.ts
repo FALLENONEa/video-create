@@ -43,6 +43,10 @@ export function useVideoPromptState({
           ['firstLastFramePrompt', panel.firstLastFramePrompt || ''],
         ]
         for (const [field, value] of promptEntries) {
+          // 仅预填有持久值的字段；空值不写入，好让 getLocalPrompt 回退到 externalPrompt
+          // （首尾帧 firstLastFramePrompt 为空时回退到拼接的默认提示词，而非显示空白）。
+          // 用户真正编辑过的草稿由 dirtyPrompts 保护，不会被这里跳过。
+          if (!value) continue
           const stateKey = buildPromptStateKey(panelKey, field)
           if (dirtyPrompts.has(stateKey)) continue
           next.set(stateKey, value)

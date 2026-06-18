@@ -15,6 +15,42 @@
   },
   {
     "modelType": "video",
+    "provider": "zhipu",
+    "modelId": "cogvideox-3",
+    "capabilities": {
+      "video": {
+        "generationModeOptions": ["normal", "firstlastframe"],
+        "generateAudioOptions": [true, false],
+        "durationOptions": [5, 10],
+        "fpsOptions": [30, 60],
+        "resolutionOptions": ["1920x1080", "1080x1920", "1024x1024", "1280x720", "720x1280", "2048x1080", "3840x2160"],
+        "qualityOptions": ["speed", "quality"],
+        "watermarkOptions": [true, false],
+        "firstlastframe": true,
+        "supportGenerateAudio": true
+      }
+    }
+  },
+  {
+    "modelType": "video",
+    "provider": "zhipu",
+    "modelId": "cogvideox-flash",
+    "capabilities": {
+      "video": {
+        "generationModeOptions": ["normal"],
+        "generateAudioOptions": [true, false],
+        "durationOptions": [5, 10],
+        "fpsOptions": [30, 60],
+        "resolutionOptions": ["1920x1080", "1080x1920", "1024x1024", "1280x720", "720x1280", "2048x1080", "3840x2160"],
+        "qualityOptions": ["speed", "quality"],
+        "watermarkOptions": [true, false],
+        "firstlastframe": false,
+        "supportGenerateAudio": true
+      }
+    }
+  },
+  {
+    "modelType": "video",
     "provider": "ark",
     "modelId": "doubao-seedance-2-0-260128",
     "capabilities": {

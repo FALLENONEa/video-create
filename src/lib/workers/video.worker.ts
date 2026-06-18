@@ -18,6 +18,7 @@ import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/model-capabilities/lookup'
 import { parseModelKeyStrict } from '@/lib/model-config-contract'
 import { getProviderConfig } from '@/lib/api-config'
+import { logInfo as _ulogInfo } from '@/lib/logging/core'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -142,6 +143,8 @@ async function generateVideoForPanel(
       }
     }
   }
+
+  _ulogInfo(`[VideoPanel FL-diag] panel=${panel.id} mode=${generationMode} flPayload=${!!firstLastFramePayload} lastSB=${firstLastFramePayload?.lastFrameStoryboardId ?? 'none'} lastIdx=${firstLastFramePayload?.lastFramePanelIndex ?? 'none'} lastFrameBase64=${lastFrameImageBase64 ? `yes(len=${lastFrameImageBase64.length})` : 'MISSING'}`)
 
   const generatedVideo = await resolveVideoSourceFromGeneration(job, {
     userId: job.data.userId,

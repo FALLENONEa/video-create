@@ -10,6 +10,7 @@ type SupportedProvider =
   | 'siliconflow'
   | 'openai-compatible'
   | 'gemini-compatible'
+  | 'sub2api'
   | 'custom'
 
 type TestConnectionPayload = {
@@ -41,6 +42,7 @@ function normalizeProvider(payload: TestConnectionPayload): SupportedProvider {
     case 'openai':
     case 'openai-compatible':
     case 'gemini-compatible':
+    case 'sub2api':
     case 'bailian':
     case 'siliconflow':
     case 'custom':
@@ -213,6 +215,14 @@ export async function testLlmConnection(payload: TestConnectionPayload): Promise
         model: requestedModel || undefined,
       })
       return { provider, message: 'gemini-compatible 连接成功', ...tested }
+    }
+    case 'sub2api': {
+      const tested = await testOpenAICompatibleConnection({
+        apiKey,
+        baseURL: requireBaseUrl(payload),
+        model: requestedModel || undefined,
+      })
+      return { provider, message: 'sub2api 连接成功', ...tested }
     }
     case 'custom': {
       const tested = await testOpenAICompatibleConnection({

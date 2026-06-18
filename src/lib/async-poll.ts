@@ -21,6 +21,7 @@ import { queryGeminiBatchStatus, querySeedanceVideoStatus, queryGoogleVideoStatu
 import { getProviderConfig, getUserModels } from './api-config'
 import { buildRenderedTemplateRequest, buildTemplateVariables, normalizeResponseJson, readJsonPath } from './openai-compat-template-runtime'
 import { composeModelKey } from './model-config-contract'
+import { zhipuQueryAsyncResult } from './zhipu-api'
 
 const OPENAI_COMPAT_PROVIDER_PREFIX = 'openai-compatible:'
 const PROVIDER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -48,7 +49,7 @@ function getErrorMessage(error: unknown): string {
  * 解析 externalId 获取 provider、type 和请求信息
  */
 export function parseExternalId(externalId: string): {
-    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW' | 'UNKNOWN'
+    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW' | 'ZHIPU' | 'UNKNOWN'
     type: 'VIDEO' | 'IMAGE' | 'BATCH' | 'UNKNOWN'
     endpoint?: string
     requestId: string
@@ -210,9 +211,23 @@ export function parseExternalId(externalId: string): {
         }
     }
 
+    if (externalId.startsWith('ZHIPU:')) {
+        const parts = externalId.split(':')
+        const type = parts[1]
+        const requestId = parts.slice(2).join(':')
+        if ((type !== 'VIDEO' && type !== 'IMAGE') || !requestId) {
+            throw new Error(`无效 ZHIPU externalId: "${externalId}"，应为 ZHIPU:TYPE:taskId`)
+        }
+        return {
+            provider: 'ZHIPU',
+            type: type as 'VIDEO' | 'IMAGE',
+            requestId,
+        }
+    }
+
     throw new Error(
         `无法识别的 externalId 格式: "${externalId}". ` +
-        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId`
+        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId, ZHIPU:TYPE:taskId`
     )
 }
 
@@ -252,6 +267,8 @@ export async function pollAsyncTask(
             return await pollBailianTask(parsed.requestId, userId)
         case 'SILICONFLOW':
             return await pollSiliconFlowTask(parsed.requestId)
+        case 'ZHIPU':
+            return await pollZhipuTask(parsed.type, parsed.requestId, userId)
         default:
             // 🔥 移除 fallback：未知 provider 直接抛出错误
             throw new Error(`未知的 Provider: ${parsed.provider}`)
@@ -860,6 +877,49 @@ async function pollSiliconFlowTask(requestId: string): Promise<PollResult> {
 }
 
 /**
+ * 智谱异步任务轮询（CogVideoX 视频 / CogView 图像统一查询接口 /async-result/{id}）
+ */
+async function pollZhipuTask(
+    type: 'VIDEO' | 'IMAGE' | 'BATCH' | 'UNKNOWN',
+    taskId: string,
+    userId: string,
+): Promise<PollResult> {
+    const { apiKey } = await getProviderConfig(userId, 'zhipu')
+    const result = await zhipuQueryAsyncResult(taskId, { apiKey, logPrefix: '[Zhipu Poll]' })
+    if (!result) {
+        // 查询失败（网络异常 / 非 2xx）→ pending，轮询循环下轮天然重试
+        return { status: 'pending' }
+    }
+
+    const taskStatus = typeof result.task_status === 'string' ? result.task_status.trim().toUpperCase() : ''
+
+    if (taskStatus === 'FAIL' || taskStatus === 'FAILED') {
+        const errMsg = (result.error?.message && result.error.message.trim())
+            || `Zhipu: 任务失败 (${taskStatus || '未知状态'})`
+        return { status: 'failed', error: errMsg }
+    }
+
+    if (taskStatus === 'SUCCESS' || taskStatus === 'SUCCEEDED') {
+        const videoUrl = result.video_result?.[0]?.url
+        const imageUrl = result.image_result?.[0]?.url
+        const videoUrlStr = typeof videoUrl === 'string' ? videoUrl.trim() : ''
+        const imageUrlStr = typeof imageUrl === 'string' ? imageUrl.trim() : ''
+        const mediaUrl = videoUrlStr || imageUrlStr
+        if (!mediaUrl) {
+            return { status: 'failed', error: 'Zhipu: 任务完成但未返回结果 URL' }
+        }
+        return {
+            status: 'completed',
+            resultUrl: mediaUrl,
+            ...(type === 'IMAGE' ? { imageUrl: mediaUrl } : { videoUrl: mediaUrl }),
+        }
+    }
+
+    // processing / 未知状态 → pending
+    return { status: 'pending' }
+}
+
+/**
  * 查询 Vidu 任务状态
  */
 async function queryViduTaskStatus(
@@ -950,7 +1010,7 @@ async function queryViduTaskStatus(
  * 创建标准格式的 externalId
  */
 export function formatExternalId(
-    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW',
+    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW' | 'ZHIPU',
     type: 'VIDEO' | 'IMAGE' | 'BATCH',
     requestId: string,
     endpoint?: string,

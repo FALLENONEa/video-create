@@ -87,6 +87,8 @@ export type StoryboardPanel = JsonRecord & {
     shot_type?: string
     camera_move?: string
     video_prompt?: string
+    /** 首尾帧过渡提示词：描述当前镜画面如何动态过渡到下一镜画面（首尾帧视频模式专用） */
+    first_last_frame_prompt?: string
     duration?: number
     photographyPlan?: JsonRecord
     actingNotes?: unknown

@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   VideoGenerationOptions,
   VideoModelOption,
   VideoPanel,
 } from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/components/video'
+import type { CapabilitySelections, CapabilityValue } from '@/lib/model-config-contract'
 import {
   normalizeVideoGenerationSelections,
   resolveEffectiveVideoCapabilityDefinitions,
@@ -33,6 +34,27 @@ function parseByOptionType(
   return input
 }
 
+function readFlSelectionForModel(
+  capabilityOverrides: CapabilitySelections | undefined,
+  modelKey: string,
+): VideoGenerationOptions {
+  if (!modelKey || !capabilityOverrides) return {}
+  const raw = capabilityOverrides[modelKey]
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const selection: VideoGenerationOptions = {}
+  for (const [field, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (field === 'aspectRatio') continue
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      selection[field] = value
+    }
+  }
+  return selection
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
 function toFieldLabel(field: string): string {
   return field.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase())
 }
@@ -41,6 +63,8 @@ interface UseVideoFirstLastFrameFlowParams {
   allPanels: VideoPanel[]
   linkedPanels: Map<string, boolean>
   videoModelOptions: VideoModelOption[]
+  capabilityOverrides?: CapabilitySelections
+  onCapabilityOverridesChange?: (value: CapabilitySelections) => void | Promise<void>
   onGenerateVideo: (
     storyboardId: string,
     panelIndex: number,
@@ -61,6 +85,8 @@ export function useVideoFirstLastFrameFlow({
   allPanels,
   linkedPanels,
   videoModelOptions,
+  capabilityOverrides,
+  onCapabilityOverridesChange,
   onGenerateVideo,
   t,
 }: UseVideoFirstLastFrameFlowParams) {
@@ -69,7 +95,12 @@ export function useVideoFirstLastFrameFlow({
     [videoModelOptions],
   )
   const [flModel, setFlModel] = useState(firstLastFrameModelOptions[0]?.value || '')
-  const [flGenerationOptions, setFlGenerationOptions] = useState<VideoGenerationOptions>({})
+  const prevFlModelRef = useRef(flModel)
+  // 标记用户是否手动改过首尾帧选项；项目级 capabilityOverrides 异步到位时若尚未 touched，则回填 DB 值
+  const userTouchedRef = useRef(false)
+  const [flGenerationOptions, setFlGenerationOptions] = useState<VideoGenerationOptions>(() =>
+    readFlSelectionForModel(capabilityOverrides, flModel),
+  )
   const [flCustomPrompts, setFlCustomPrompts] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
@@ -125,14 +156,22 @@ export function useVideoFirstLastFrameFlow({
   )
 
   useEffect(() => {
-    setFlGenerationOptions((previous) => {
-      return normalizeVideoGenerationSelections({
-        definitions: flCapabilityDefinitions,
-        pricingTiers: flPricingTiers,
-        selection: previous,
-      })
-    })
-  }, [flCapabilityDefinitions, flPricingTiers])
+    // 切 flModel → 用新模型的项目级默认重置并清 touched；
+    // 项目级 capabilityOverrides 异步到位 → 用户尚未手动改过时回填 DB 值
+    //   （否则首挂载时 overrides 为空留下的默认值会一直留着，项目级 duration=10 永远进不来，
+    //   首尾帧视频时长停在默认 5）；
+    // 用户已手动改过 → 保留 local，避免被异步刷新 / 项目级回写覆盖。
+    const modelChanged = prevFlModelRef.current !== flModel
+    prevFlModelRef.current = flModel
+    if (modelChanged) userTouchedRef.current = false
+    const useDB = modelChanged || !userTouchedRef.current
+    const dbSelection = readFlSelectionForModel(capabilityOverrides, flModel)
+    setFlGenerationOptions((previous) => normalizeVideoGenerationSelections({
+      definitions: flCapabilityDefinitions,
+      pricingTiers: flPricingTiers,
+      selection: useDB ? dbSelection : previous,
+    }))
+  }, [flCapabilityDefinitions, flPricingTiers, flModel, capabilityOverrides])
 
   const flEffectiveCapabilityFields = useMemo(
     () => resolveEffectiveVideoCapabilityFields({
@@ -178,6 +217,7 @@ export function useVideoFirstLastFrameFlow({
     if (!definitionField || definitionField.options.length === 0) return
     const parsedValue = parseByOptionType(rawValue, definitionField.options[0])
     if (!definitionField.options.includes(parsedValue)) return
+    userTouchedRef.current = true
     setFlGenerationOptions((previous) => ({
       ...normalizeVideoGenerationSelections({
         definitions: flCapabilityDefinitions,
@@ -189,7 +229,17 @@ export function useVideoFirstLastFrameFlow({
         pinnedFields: [field],
       }),
     }))
-  }, [flCapabilityDefinitions, flDefinitionFieldMap, flPricingTiers])
+    // 回写到项目级 capabilityOverrides，使其持久化并成为该模型的项目默认（与单图面板一致）
+    if (onCapabilityOverridesChange && flModel) {
+      const nextOverrides: CapabilitySelections = { ...(capabilityOverrides || {}) }
+      const current = isRecord(nextOverrides[flModel])
+        ? { ...(nextOverrides[flModel] as Record<string, CapabilityValue>) }
+        : {}
+      current[field] = parsedValue
+      nextOverrides[flModel] = current
+      void onCapabilityOverridesChange(nextOverrides)
+    }
+  }, [flCapabilityDefinitions, flDefinitionFieldMap, flPricingTiers, flModel, capabilityOverrides, onCapabilityOverridesChange])
 
   const setFlCustomPrompt = useCallback((panelKey: string, value: string) => {
     setFlCustomPrompts((previous) => new Map(previous).set(panelKey, value))

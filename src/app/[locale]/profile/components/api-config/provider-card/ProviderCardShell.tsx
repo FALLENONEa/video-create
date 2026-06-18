@@ -27,6 +27,7 @@ export function getCompatibilityLayerBadgeLabel(
   const providerKey = getProviderKey(providerId)
   if (providerKey === 'openai-compatible') return t('compatibilityLayerOpenAI')
   if (providerKey === 'gemini-compatible') return t('compatibilityLayerGemini')
+  if (providerKey === 'sub2api') return t('compatibilityLayerSub2Api')
   return null
 }
 

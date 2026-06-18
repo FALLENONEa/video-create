@@ -100,6 +100,7 @@ export function useWorkspaceStageRuntime({
     userVideoModels: resolvedUserVideoModels,
     onNovelTextChange: (value) => handleUpdateEpisode('novelText', value),
     onVideoRatioChange: (value) => handleUpdateConfig('videoRatio', value),
+    onCapabilityOverridesChange: (value) => handleUpdateConfig('capabilityOverrides', value),
     onArtStyleChange: (value) => handleUpdateConfig('artStyle', value),
     onRunStoryToScript: () => runWithRebuildConfirm('storyToScript', runStoryToScriptFlow),
     onClipUpdate: (clipId, data) => {

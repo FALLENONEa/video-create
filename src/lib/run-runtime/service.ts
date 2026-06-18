@@ -140,7 +140,10 @@ type GraphRuntimeTx = {
 }
 
 type GraphRuntimeClient = GraphRuntimeTx & {
-  $transaction: <T>(fn: (tx: GraphRuntimeTx) => Promise<T>) => Promise<T>
+  $transaction: <T>(
+    fn: (tx: GraphRuntimeTx) => Promise<T>,
+    options?: { timeout?: number; maxWait?: number },
+  ) => Promise<T>
 }
 
 const runtimeClient = prisma as unknown as GraphRuntimeClient
@@ -925,7 +928,7 @@ export async function appendRunEventWithSeq(input: RunEventInput): Promise<RunEv
 
     await applyRunProjection(tx, input)
     return mapEventRow(created)
-  })
+  }, { timeout: 30_000 })
 }
 
 export async function listRunEventsAfterSeq(params: {

@@ -1,7 +1,7 @@
 'use client'
 
 import { logError as _ulogError } from '@/lib/logging/core'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   VideoToolbar,
@@ -21,6 +21,8 @@ import ImagePreviewModal from '@/components/ui/ImagePreviewModal'
 import { ModelCapabilityDropdown } from '@/components/ui/config-modals/ModelCapabilityDropdown'
 import VideoTimelinePanel from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/components/video-stage/VideoTimelinePanel'
 import VideoRenderPanel from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/components/video-stage/VideoRenderPanel'
+import { useWorkspaceStageRuntime } from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/WorkspaceStageRuntimeContext'
+import type { CapabilitySelections, CapabilityValue } from '@/lib/model-config-contract'
 import type { VideoStageShellProps } from './video-stage-runtime/types'
 import {
   type EffectiveVideoCapabilityDefinition,
@@ -63,6 +65,27 @@ function toFieldLabel(field: string): string {
   return field.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase())
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function readSelectionForModel(
+  capabilityOverrides: CapabilitySelections | undefined,
+  modelKey: string,
+): VideoGenerationOptions {
+  if (!modelKey || !capabilityOverrides) return {}
+  const raw = capabilityOverrides[modelKey]
+  if (!isRecord(raw)) return {}
+  const selection: VideoGenerationOptions = {}
+  for (const [field, value] of Object.entries(raw)) {
+    if (field === 'aspectRatio') continue
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      selection[field] = value
+    }
+  }
+  return selection
+}
+
 export function useVideoStageRuntime({
   projectId,
   episodeId,
@@ -81,6 +104,8 @@ export function useVideoStageRuntime({
   onEnterEditor,
 }: VideoStageShellProps) {
   const t = useTranslations('video')
+  // 从项目级 runtime context 取 capabilityOverrides 回写通道：单图/首尾帧/批量统一持久化到同一份项目配置
+  const { onCapabilityOverridesChange } = useWorkspaceStageRuntime()
 
   const {
     panelVideoPreference,
@@ -188,7 +213,12 @@ export function useVideoStageRuntime({
   const [submittingVideoPanelKeys, setSubmittingVideoPanelKeys] = useState<Set<string>>(new Set())
   const [submittingVideoBaselines, setSubmittingVideoBaselines] = useState<Map<string, VideoSubmissionBaseline>>(new Map())
   const [batchSelectedModel, setBatchSelectedModel] = useState('')
-  const [batchGenerationOptions, setBatchGenerationOptions] = useState<VideoGenerationOptions>({})
+  const prevBatchModelRef = useRef(batchSelectedModel)
+  // 标记用户是否手动改过批量选项；项目级 capabilityOverrides 异步到位 / 切批量模型时若未 touched 则回填
+  const batchUserTouchedRef = useRef(false)
+  const [batchGenerationOptions, setBatchGenerationOptions] = useState<VideoGenerationOptions>(() =>
+    readSelectionForModel(capabilityOverrides, batchSelectedModel),
+  )
 
   useEffect(() => {
     if (normalVideoModelOptions.length === 0) {
@@ -225,14 +255,20 @@ export function useVideoStageRuntime({
   }, [batchPricingTiers, selectedBatchModelOption?.capabilities?.video])
 
   useEffect(() => {
-    setBatchGenerationOptions((previous) => {
-      return normalizeVideoGenerationSelections({
-        definitions: batchCapabilityDefinitions,
-        pricingTiers: batchPricingTiers,
-        selection: previous,
-      })
-    })
-  }, [batchCapabilityDefinitions, batchPricingTiers])
+    // 切批量模型 → 用新模型的项目级默认重置并清 touched；
+    // 项目级 capabilityOverrides 异步到位 → 用户尚未手动改过时回填 DB 值；
+    // 用户已手动改过 → 保留 local，避免被异步刷新 / 项目级回写覆盖。
+    const modelChanged = prevBatchModelRef.current !== batchSelectedModel
+    prevBatchModelRef.current = batchSelectedModel
+    if (modelChanged) batchUserTouchedRef.current = false
+    const useDB = modelChanged || !batchUserTouchedRef.current
+    const dbSelection = readSelectionForModel(capabilityOverrides, batchSelectedModel)
+    setBatchGenerationOptions((previous) => normalizeVideoGenerationSelections({
+      definitions: batchCapabilityDefinitions,
+      pricingTiers: batchPricingTiers,
+      selection: useDB ? dbSelection : previous,
+    }))
+  }, [batchCapabilityDefinitions, batchPricingTiers, batchSelectedModel, capabilityOverrides])
 
   const batchEffectiveCapabilityFields = useMemo(
     () => resolveEffectiveVideoCapabilityFields({
@@ -286,6 +322,7 @@ export function useVideoStageRuntime({
           ? rawValue === 'true'
           : rawValue
     if (!capabilityDefinition.options.includes(parsedValue)) return
+    batchUserTouchedRef.current = true
     setBatchGenerationOptions((previous) => ({
       ...normalizeVideoGenerationSelections({
         definitions: batchCapabilityDefinitions,
@@ -297,7 +334,17 @@ export function useVideoStageRuntime({
         pinnedFields: [field],
       }),
     }))
-  }, [batchCapabilityDefinitions, batchDefinitionFieldMap, batchPricingTiers])
+    // 回写到项目级 capabilityOverrides，使其持久化并成为该模型的项目默认（与单图/首尾帧一致）
+    if (onCapabilityOverridesChange && batchSelectedModel) {
+      const nextOverrides: CapabilitySelections = { ...(capabilityOverrides || {}) }
+      const current = isRecord(nextOverrides[batchSelectedModel])
+        ? { ...(nextOverrides[batchSelectedModel] as Record<string, CapabilityValue>) }
+        : {}
+      current[field] = parsedValue
+      nextOverrides[batchSelectedModel] = current
+      void onCapabilityOverridesChange(nextOverrides)
+    }
+  }, [batchCapabilityDefinitions, batchDefinitionFieldMap, batchPricingTiers, batchSelectedModel, capabilityOverrides, onCapabilityOverridesChange])
 
   const handleLipSync = useCallback(async (
     storyboardId: string,
@@ -402,6 +449,8 @@ export function useVideoStageRuntime({
     allPanels,
     linkedPanels,
     videoModelOptions: allVideoModelOptions,
+    capabilityOverrides,
+    onCapabilityOverridesChange,
     onGenerateVideo: handleGenerateVideoWithImmediateLock,
     t: (key) => t(key as never),
   })

@@ -25,6 +25,7 @@ Required fields per panel:
 - shot_type
 - camera_move
 - video_prompt
+- first_last_frame_prompt (transition prompt for first-last-frame video mode: the model receives this shot's frame as the FIRST frame and the NEXT shot's frame as the LAST frame, then generates the transition video between them; describe the continuous action/motion from this shot's end-state to the next shot's start-state; use age+gender wording; null if last panel with no successor)
 - duration (optional)
 
 Output schema example (field names must be preserved):
@@ -39,6 +40,7 @@ Output schema example (field names must be preserved):
     "shot_type": "medium shot",
     "camera_move": "static",
     "video_prompt": "motion-ready prompt",
+    "first_last_frame_prompt": "the man leans slightly forward while speaking, fingertips lightly tapping the desk; camera slowly pushes in from a medium shot as faint dust drifts in the air, transitioning into a close-up of his grave expression",
     "duration": 3
   }
 ]
@@ -54,3 +56,6 @@ Rules:
 8. Do not shorten, rewrite, summarize, or replace a provided `slot` phrase with a short token.
 9. Return JSON array only.
 10. ⚠️ JSON SAFETY: All quotation marks in text (""''「」 etc.) MUST be converted to corner brackets「」in JSON string values. NEVER use raw ASCII double quotes " inside string values.
+11. first_last_frame_prompt MUST contain all four dynamic elements, none optional: (1) action continuation — what the subject does during the transition and how its pose changes; (2) camera motion — direction/speed/scale of the move (push/pull/pan/truck/boom/orbit); (3) spatial change — how framing and scale shift into the next shot; (4) ⭐ transition texture — how things MOVE during these seconds: particles/VFX (shattering runes, surging mist, scattering sparks, creeping cracks), lighting shifts (brightness and color-temperature drift), environmental response (dust lifting, air shimmering, ground rippling), and the subject's micro-dynamics (clothes fluttering, hair flying, muscles tensing, micro-expressions).
+12. ⚠️ Texture detail must only describe how things MOVE, never static appearance — faces, outfits, and scene layout are already locked by the first/last frames; restating them makes the text fight the images and corrupts generation.
+13. ⚠️ Camera rhythm: never chain consecutive large same-direction moves (no back-to-back fast push-ins, fast pull-outs, or big boom moves). Insert at least one static/micro-move every 3-4 shots for breathing room, and alternate fast and slow moves to avoid a dizzying all-fast sequence. This applies to both camera_move and first_last_frame_prompt.

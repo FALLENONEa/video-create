@@ -418,6 +418,7 @@ async function handleRegenerateStoryboardTextTask(job: Job<TaskJobData>) {
           srtEnd,
           duration: panel.duration || null,
           videoPrompt: panel.video_prompt || null,
+          firstLastFramePrompt: panel.first_last_frame_prompt || null,
           sceneType: typeof panel.scene_type === 'string' ? panel.scene_type : null,
           srtSegment: panel.source_text || null,
           photographyRules: panel.photographyPlan ? JSON.stringify(panel.photographyPlan) : null,

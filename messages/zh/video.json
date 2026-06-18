@@ -194,6 +194,12 @@
     "duration": "时长",
     "fps": "帧率",
     "resolution": "分辨率",
+    "quality": "质量",
+    "qualityOptions": {
+      "speed": "速度优先",
+      "quality": "质量优先"
+    },
+    "watermark": "水印",
     "aspectRatio": "画幅比例",
     "reasoningEffort": "推理强度",
     "voice": "音色",

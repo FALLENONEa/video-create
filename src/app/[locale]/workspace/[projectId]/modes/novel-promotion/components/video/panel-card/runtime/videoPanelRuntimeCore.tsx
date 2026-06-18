@@ -9,6 +9,7 @@ import { usePanelPlayer } from './hooks/usePanelPlayer'
 import { usePanelPromptEditor } from './hooks/usePanelPromptEditor'
 import { usePanelVoiceManager } from './hooks/usePanelVoiceManager'
 import { usePanelLipSync } from './hooks/usePanelLipSync'
+import { useWorkspaceStageRuntime } from '../../../../WorkspaceStageRuntimeContext'
 
 export function useVideoPanelActions({
   panel,
@@ -67,10 +68,12 @@ export function useVideoPanelActions({
     tCommon: (key: string) => tCommon(key as never),
   })
 
+  const { onCapabilityOverridesChange } = useWorkspaceStageRuntime()
   const videoModel = usePanelVideoModel({
     defaultVideoModel,
     capabilityOverrides,
     userVideoModels,
+    onCapabilityOverridesChange,
   })
 
   const player = usePanelPlayer({

@@ -718,6 +718,15 @@
   },
   {
     "apiType": "video",
+    "provider": "zhipu",
+    "modelId": "cogvideox-flash",
+    "pricing": {
+      "mode": "flat",
+      "flatAmount": 0
+    }
+  },
+  {
+    "apiType": "video",
     "provider": "ark",
     "modelId": "doubao-seedance-1-0-pro-250528",
     "pricing": {

@@ -40,6 +40,8 @@ export interface VideoCapabilities {
   durationOptions?: number[]
   fpsOptions?: number[]
   resolutionOptions?: string[]
+  qualityOptions?: string[]
+  watermarkOptions?: boolean[]
   firstlastframe?: boolean
   supportGenerateAudio?: boolean
   fieldI18n?: CapabilityFieldI18nMap
@@ -94,6 +96,8 @@ const VIDEO_ALLOWED_FIELDS = new Set<keyof VideoCapabilities>([
   'durationOptions',
   'fpsOptions',
   'resolutionOptions',
+  'qualityOptions',
+  'watermarkOptions',
   'firstlastframe',
   'supportGenerateAudio',
   'fieldI18n',
@@ -341,6 +345,24 @@ function validateVideoCapabilities(issues: CapabilityValidationIssue[], raw: unk
     })
   }
 
+  const qualityOptions = raw.qualityOptions
+  if (qualityOptions !== undefined && !isStringArray(qualityOptions)) {
+    issues.push({
+      code: 'CAPABILITY_FIELD_INVALID',
+      field: 'capabilities.video.qualityOptions',
+      message: 'qualityOptions must be a non-empty string array',
+    })
+  }
+
+  const watermarkOptions = raw.watermarkOptions
+  if (watermarkOptions !== undefined && !isBooleanArray(watermarkOptions)) {
+    issues.push({
+      code: 'CAPABILITY_FIELD_INVALID',
+      field: 'capabilities.video.watermarkOptions',
+      message: 'watermarkOptions must be a boolean array',
+    })
+  }
+
   if (raw.supportGenerateAudio !== undefined && typeof raw.supportGenerateAudio !== 'boolean') {
     issues.push({
       code: 'CAPABILITY_FIELD_INVALID',
@@ -363,6 +385,8 @@ function validateVideoCapabilities(issues: CapabilityValidationIssue[], raw: unk
     duration: isNumberArray(durationOptions) ? durationOptions : undefined,
     fps: isNumberArray(fpsOptions) ? fpsOptions : undefined,
     resolution: isStringArray(resolutionOptions) ? resolutionOptions : undefined,
+    quality: isStringArray(qualityOptions) ? qualityOptions : undefined,
+    watermark: isBooleanArray(watermarkOptions) ? watermarkOptions : undefined,
   })
 }
 

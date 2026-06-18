@@ -176,7 +176,7 @@ export function buildProviderConnectionPayload(params: {
   const compatibleBaseUrl = params.baseUrl?.trim()
   const llmModel = params.llmModel?.trim()
   const isCompatibleProvider =
-    params.providerKey === 'openai-compatible' || params.providerKey === 'gemini-compatible'
+    params.providerKey === 'openai-compatible' || params.providerKey === 'gemini-compatible' || params.providerKey === 'sub2api'
 
   if (isCompatibleProvider && compatibleBaseUrl) {
     return {
@@ -386,7 +386,7 @@ export function useProviderCardState({
     (presetProvider) => presetProvider.id === provider.id,
   )
   const showBaseUrlEdit =
-    ['gemini-compatible', 'openai-compatible'].includes(providerKey) &&
+    ['gemini-compatible', 'openai-compatible', 'sub2api'].includes(providerKey) &&
     Boolean(onUpdateBaseUrl)
   const tutorial = getProviderTutorial(provider.id)
 

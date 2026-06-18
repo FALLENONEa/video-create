@@ -704,7 +704,10 @@ export async function chatCompletionStream(
             `LLM_EMPTY_RESPONSE: ${providerName}::${resolvedModelId} 返回空内容` +
             ` [finishReason: ${finishInfo}]` +
             ` [httpStatus: ${sdkResponseStatus ?? 'unknown'}]` +
+            ` [baseUrl: ${providerConfig?.baseUrl ?? 'unknown'}]` +
+            ` [content-type: ${sdkResponseHeaders?.['content-type'] ?? 'none'}]` +
             errDetail +
+            (unknownChunkSamples.length > 0 ? ` [unknownChunks: ${JSON.stringify(unknownChunkSamples).slice(0, 300)}]` : '') +
             ` [chunks: ${JSON.stringify(chunkTypeCounts)}]`,
           )
         }

@@ -70,7 +70,10 @@ function normalizeProviderBaseUrl(providerId: string, rawBaseUrl?: string): stri
 
   const baseUrl = readTrimmedString(rawBaseUrl)
   if (!baseUrl) return undefined
-  if (providerKey !== 'openai-compatible') return baseUrl
+  // sub2api 与 openai-compatible 同属 OpenAI 兼容中转，API 路径必须带 /v1 前缀；
+  // 其他 provider（google/gemini/bailian/siliconflow/ark 等）各有自己的协议与 baseUrl 约定，不在统一补全。
+  const needsOpenAIV1Prefix = providerKey === 'openai-compatible' || providerKey === 'sub2api'
+  if (!needsOpenAIV1Prefix) return baseUrl
 
   try {
     const parsed = new URL(baseUrl)

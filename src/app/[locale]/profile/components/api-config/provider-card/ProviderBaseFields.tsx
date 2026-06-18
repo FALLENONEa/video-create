@@ -16,6 +16,7 @@ export function ProviderBaseFields({ provider, t, state }: ProviderBaseFieldsPro
       case 'gemini-compatible':
         return 'https://your-api-domain.com'
       case 'openai-compatible':
+      case 'sub2api':
         return 'https://api.openai.com/v1'
       default:
         return 'http://localhost:8000'

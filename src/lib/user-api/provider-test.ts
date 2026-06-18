@@ -20,7 +20,7 @@ export interface TestProviderResult {
 type PresetProviderType = 'ark' | 'google' | 'openrouter' | 'minimax' | 'fal' | 'vidu'
   | 'bailian'
   | 'siliconflow'
-type CompatibleProviderType = 'openai-compatible' | 'gemini-compatible'
+type CompatibleProviderType = 'openai-compatible' | 'gemini-compatible' | 'sub2api'
 
 type TestProviderPayload = {
   apiType: CompatibleProviderType | PresetProviderType
@@ -843,7 +843,7 @@ export async function testProviderConnection(payload: TestProviderPayload): Prom
   }
 
   // Compatible providers require baseUrl
-  if ((apiType === 'openai-compatible' || apiType === 'gemini-compatible') && !baseUrl) {
+  if ((apiType === 'openai-compatible' || apiType === 'gemini-compatible' || apiType === 'sub2api') && !baseUrl) {
     return {
       success: false,
       steps: [{ name: 'models', status: 'fail', message: 'Missing baseUrl' }],
@@ -854,6 +854,7 @@ export async function testProviderConnection(payload: TestProviderPayload): Prom
     case 'openai-compatible':
       return testCompatibleProvider(baseUrl!, apiKey, llmModel)
     case 'gemini-compatible':
+    case 'sub2api':
       return testCompatibleProvider(baseUrl!, apiKey, llmModel)
     case 'ark':
       return testArkProvider(apiKey)

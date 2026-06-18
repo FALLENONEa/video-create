@@ -15,11 +15,13 @@ import {
     GoogleGeminiBatchImageGenerator,
     GeminiCompatibleImageGenerator,
     OpenAICompatibleImageGenerator,
+    Sub2ApiImageGenerator,
 } from './image'
 import { GoogleVeoVideoGenerator } from './video/google'
 import { OpenAICompatibleVideoGenerator } from './video'
 import { MinimaxVideoGenerator } from './minimax'
 import { ViduVideoGenerator } from './vidu'
+import { ZhipuVideoGenerator, ZhipuImageGenerator } from './zhipu'
 import { getProviderKey } from '@/lib/api-config'
 import {
     BailianAudioGenerator,
@@ -67,6 +69,10 @@ export function createImageGenerator(provider: string, modelId?: string): ImageG
             return new BailianImageGenerator()
         case 'siliconflow':
             return new SiliconFlowImageGenerator()
+        case 'zhipu':
+            return new ZhipuImageGenerator()
+        case 'sub2api':
+            return new Sub2ApiImageGenerator(actualModelId, provider)
         default:
             throw new Error(`Unknown image generator provider: ${provider}`)
     }
@@ -90,6 +96,8 @@ export function createVideoGenerator(provider: string): VideoGenerator {
             return new MinimaxVideoGenerator()
         case 'vidu':
             return new ViduVideoGenerator()
+        case 'zhipu':
+            return new ZhipuVideoGenerator()
         case 'openai-compatible':
             return new OpenAICompatibleVideoGenerator(provider)
         case 'bailian':

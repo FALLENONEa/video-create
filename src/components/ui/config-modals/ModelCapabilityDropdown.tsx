@@ -211,11 +211,22 @@ export function ModelCapabilityDropdown({
     }, [tv])
 
     /** Format option value for display — converts booleans to localized On/Off */
-    const formatOptionLabel = useCallback((val: CapabilityValue): string => {
+    const formatOptionLabel = useCallback((field: string, val: CapabilityValue): string => {
+        // 优先查 capability.{field}Options.{value} 文案表（如 qualityOptions.speed → 速度优先）。
+        // 关键陷阱：next-intl 找不到 key 时返回带 namespace 前缀的完整路径
+        // （如 "video.capability.generateAudioOptions.true"）而非抛错，
+        // 真实文案是短词不会含此点路径，故用 includes 识别 fallback 并回退。
+        const keyPath = `capability.${field}Options.${String(val)}`
+        try {
+            const localized = tv(keyPath as never)
+            if (typeof localized === 'string' && localized && !localized.includes(keyPath)) return localized
+        } catch {
+            // 极少数情况下 next-intl 抛错，回退到通用格式化
+        }
         if (val === true || val === 'true') return t('boolOn')
         if (val === false || val === 'false') return t('boolOff')
         return String(val)
-    }, [t])
+    }, [t, tv])
 
     // Build summary text from capability overrides + defaults
     const paramSummary = visibleCapabilityFields
@@ -223,7 +234,7 @@ export function ModelCapabilityDropdown({
             const val = capabilityOverrides[def.field] !== undefined
                 ? capabilityOverrides[def.field]
                 : (def.options.length > 0 ? def.options[0] : '')
-            return formatOptionLabel(val)
+            return formatOptionLabel(def.field, val)
         })
         .concat(
             booleanToggles.map((toggle) => {
@@ -362,7 +373,7 @@ export function ModelCapabilityDropdown({
                                                                 const ratioValue = String(def.options[0])
                                                                 return isR && isValidRatioText(ratioValue) ? <RatioIcon ratio={ratioValue} size={10} /> : null
                                                             })()}
-                                                            {formatOptionLabel(def.options[0])}
+                                                            {formatOptionLabel(def.field, def.options[0])}
                                                             <span className="text-[var(--glass-text-tertiary)] text-[10px]">({t('fixed')})</span>
                                                         </span>
                                                     ) : useSelect ? (
@@ -376,7 +387,7 @@ export function ModelCapabilityDropdown({
                                                                     const s = String(opt)
                                                                     return (
                                                                         <option key={s} value={s}>
-                                                                            {formatOptionLabel(opt)}
+                                                                            {formatOptionLabel(def.field, opt)}
                                                                         </option>
                                                                     )
                                                                 })}
@@ -402,7 +413,7 @@ export function ModelCapabilityDropdown({
                                                                             }`}
                                                                     >
                                                                         {isR && isValidRatioText(s) && <RatioIcon ratio={s} size={10} selected={on} />}
-                                                                        {formatOptionLabel(opt)}
+                                                                        {formatOptionLabel(def.field, opt)}
                                                                     </button>
                                                                 )
                                                             })}

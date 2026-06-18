@@ -118,6 +118,26 @@ export const PRESET_MODELS: PresetModel[] = [
     { modelId: 'MiniMax-M2.1', name: 'MiniMax M2.1', type: 'llm', provider: 'minimax' },
     { modelId: 'MiniMax-M2.1-highspeed', name: 'MiniMax M2.1 Highspeed', type: 'llm', provider: 'minimax' },
     { modelId: 'MiniMax-M2', name: 'MiniMax M2', type: 'llm', provider: 'minimax' },
+    // 智谱 GLM 文本模型
+    { modelId: 'glm-5.1', name: 'GLM-5.1', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-5', name: 'GLM-5', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-5-turbo', name: 'GLM-5-Turbo', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.7', name: 'GLM-4.7', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.7-flashx', name: 'GLM-4.7-FlashX', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.6', name: 'GLM-4.6', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.5-air', name: 'GLM-4.5-Air', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.5-airx', name: 'GLM-4.5-AirX', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4-flashx-250414', name: 'GLM-4-FlashX', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4-long', name: 'GLM-4-Long (1M)', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.7-flash', name: 'GLM-4.7-Flash', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4-flash-250414', name: 'GLM-4-Flash', type: 'llm', provider: 'zhipu' },
+    // 智谱 GLM 视觉模型（多模态）
+    { modelId: 'glm-5v-turbo', name: 'GLM-5V Turbo', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.6v', name: 'GLM-4.6V', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.6v-flash', name: 'GLM-4.6V-Flash', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4v-flash', name: 'GLM-4V-Flash', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-4.1v-thinking-flash', name: 'GLM-4.1V Thinking Flash', type: 'llm', provider: 'zhipu' },
+    { modelId: 'glm-ocr', name: 'GLM-OCR', type: 'llm', provider: 'zhipu' },
 
     // 图像模型
     { modelId: 'banana', name: 'Banana Pro', type: 'image', provider: 'fal' },
@@ -132,6 +152,10 @@ export const PRESET_MODELS: PresetModel[] = [
     { modelId: 'imagen-4.0-generate-001', name: 'Imagen 4', type: 'image', provider: 'google' },
     { modelId: 'imagen-4.0-ultra-generate-001', name: 'Imagen 4 Ultra', type: 'image', provider: 'google' },
     { modelId: 'imagen-4.0-fast-generate-001', name: 'Imagen 4 Fast', type: 'image', provider: 'google' },
+    // 智谱图像生成模型
+    { modelId: 'glm-image', name: 'GLM-Image', type: 'image', provider: 'zhipu' },
+    { modelId: 'cogview-4', name: 'CogView-4', type: 'image', provider: 'zhipu' },
+    { modelId: 'cogview-3-flash', name: 'CogView-3 Flash', type: 'image', provider: 'zhipu' },
     // 视频模型
     { modelId: 'doubao-seedance-1-0-pro-fast-251015', name: 'Seedance 1.0 Pro Fast', type: 'video', provider: 'ark' },
     { modelId: 'doubao-seedance-1-0-lite-i2v-250428', name: 'Seedance 1.0 Lite', type: 'video', provider: 'ark' },
@@ -139,6 +163,9 @@ export const PRESET_MODELS: PresetModel[] = [
     { modelId: 'doubao-seedance-2-0-260128', name: 'Seedance 2.0', type: 'video', provider: 'ark' },
     { modelId: 'doubao-seedance-2-0-fast-260128', name: 'Seedance 2.0 Fast', type: 'video', provider: 'ark' },
     { modelId: 'doubao-seedance-1-0-pro-250528', name: 'Seedance 1.0 Pro', type: 'video', provider: 'ark' },
+    // 智谱 CogVideoX
+    { modelId: 'cogvideox-3', name: 'CogVideoX-3', type: 'video', provider: 'zhipu' },
+    { modelId: 'cogvideox-flash', name: 'CogVideoX Flash', type: 'video', provider: 'zhipu' },
     // Google Veo
     { modelId: 'veo-3.1-generate-preview', name: 'Veo 3.1', type: 'video', provider: 'google' },
     { modelId: 'veo-3.1-fast-generate-preview', name: 'Veo 3.1 Fast', type: 'video', provider: 'google' },
@@ -164,6 +191,10 @@ export const PRESET_MODELS: PresetModel[] = [
     { modelId: 'fal-ai/index-tts-2/text-to-speech', name: 'IndexTTS 2', type: 'audio', provider: 'fal' },
     { modelId: 'qwen3-tts-vd-2026-01-26', name: 'Qwen3 TTS', type: 'audio', provider: 'bailian' },
     { modelId: 'qwen-voice-design', name: 'Qwen Voice Design', type: 'audio', provider: 'bailian' },
+    // 智谱语音模型
+    { modelId: 'glm-tts', name: 'GLM-TTS', type: 'audio', provider: 'zhipu' },
+    { modelId: 'glm-tts-clone', name: 'GLM-TTS-Clone', type: 'audio', provider: 'zhipu' },
+    { modelId: 'glm-asr-2512', name: 'GLM-ASR', type: 'audio', provider: 'zhipu' },
     // 口型同步模型
     { modelId: 'fal-ai/kling-video/lipsync/audio-to-video', name: 'Kling Lip Sync', type: 'lipsync', provider: 'fal' },
     { modelId: 'vidu-lipsync', name: 'Vidu Lip Sync', type: 'lipsync', provider: 'vidu' },
@@ -205,6 +236,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'apiKey' | 'hasApiKey'>[] = [
     { id: 'minimax', name: 'MiniMax Hailuo', baseUrl: 'https://api.minimaxi.com/v1' },
     { id: 'vidu', name: 'Vidu' },
     { id: 'fal', name: 'FAL' },
+    { id: 'zhipu', name: 'Zhipu AI', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
 ]
 
 const ZH_PROVIDER_NAME_MAP: Record<string, string> = {
@@ -213,6 +245,8 @@ const ZH_PROVIDER_NAME_MAP: Record<string, string> = {
     vidu: '生数科技 Vidu',
     bailian: '阿里云百炼',
     siliconflow: '硅基流动',
+    zhipu: '智谱 AI',
+    sub2api: '中转站 Sub2Api',
 }
 
 function isZhLocale(locale?: string): boolean {

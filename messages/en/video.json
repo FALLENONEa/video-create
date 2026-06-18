@@ -194,6 +194,12 @@
     "duration": "Duration",
     "fps": "Frame rate",
     "resolution": "Resolution",
+    "quality": "Quality",
+    "qualityOptions": {
+      "speed": "Speed first",
+      "quality": "Quality first"
+    },
+    "watermark": "Watermark",
     "aspectRatio": "Aspect ratio",
     "reasoningEffort": "Reasoning effort",
     "voice": "Voice",

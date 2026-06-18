@@ -28,6 +28,7 @@ export interface WorkspaceStageRuntimeValue {
   userVideoModels: WorkspaceStageVideoModelOption[]
   onNovelTextChange: (value: string) => Promise<void>
   onVideoRatioChange: (value: string) => Promise<void>
+  onCapabilityOverridesChange: (value: CapabilitySelections) => Promise<void>
   onArtStyleChange: (value: string) => Promise<void>
   onRunStoryToScript: () => Promise<void>
   onClipUpdate: (clipId: string, data: unknown) => Promise<void>

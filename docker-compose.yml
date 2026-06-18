@@ -62,7 +62,7 @@ services:
 
   # ==================== App (Next.js + Workers) ====================
   app:
-    image: ghcr.io/saturndec/waoowaoo:latest
+    image: ghcr.io/fallenaonea/video-create:latest
     container_name: waoowaoo-app
     restart: unless-stopped
     environment:

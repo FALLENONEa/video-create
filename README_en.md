@@ -2,148 +2,162 @@
   <img src="public/banner.png" alt="waoowaoo" width="600">
 </p>
 
-<h1 align="center">waoowaoo AI Video Studio</h1>
+<h1 align="center">waoowaoo AI Film Studio</h1>
 
 <p align="center">
-  An AI-powered tool for creating short drama / comic videos — automatically generates storyboards, characters, and scenes from novel text, then assembles them into complete videos.
+  An AI-powered short-drama / comic video creation tool: feed it a novel or text, and it automatically handles script breakdown, character & scene generation, storyboard drawing, AI voiceover, and final video synthesis.
 </p>
 
 <p align="center">
-  <a href="README.md">中文文档</a> · <a href="https://www.waoowaoo.com/">Join Waitlist</a> · <a href="https://github.com/saturndec/waoowaoo/issues">Report Bug</a>
+  <a href="README.md">中文</a> · <a href="https://github.com/FALLENONEa/video-create/issues">Report Bug</a>
 </p>
-
-> [!IMPORTANT]
-> **Beta Notice**: This project is currently in its early beta stage. As it is currently a solo-developed project, some bugs and imperfections are to be expected. We are iterating rapidly — please stay tuned for frequent updates! We are committed to rolling out a massive roadmap of new features and optimizations, with the ultimate goal of becoming the top-tier solution in the industry. Your feedback and feature requests are highly welcome!
 
 ---
 
 ## ✨ Features
 
-- 🎬 **AI Script Analysis** — Parse novels, extract characters, scenes & plot automatically
-- 🎨 **Character & Scene Generation** — Consistent AI-generated character and scene images
-- 📽️ **Storyboard Video** — Auto-generate shots and compose into complete videos
-- 🎙️ **AI Voiceover** — Multi-character voice synthesis
-- 🌐 **Bilingual UI** — Chinese / English, switch in the top-right corner
+- 📖 **Script Analysis** — Import a novel / text; AI breaks down characters, scenes, plot arcs and episodes
+- 🎭 **Character & Scene Consistency** — Generate character reference sheets with consistent appearance, plus scene and prop assets
+- 🎬 **Storyboard Generation** — Auto-generate frames per shot, with shot variants and first-last-frame video
+- 🎙️ **AI Voiceover** — Multi-character speech synthesis with acting direction
+- 🎞️ **Video Synthesis** — Render storyboards and audio into a complete video via Remotion
+- 🔌 **Multi-provider** — OpenAI / Google / fal.ai / OpenRouter / Zhipu / sub2api, all configured in the Settings Center
+- 🗂️ **Task Queues** — Image / Video / Voice / Text queues with a Watchdog for timeout recovery and Bull Board monitoring
+- 🌐 **Bilingual** UI (Chinese / English)
+
+---
+
+## 🏗️ Architecture
+
+The app runs several cooperating processes (`npm run start` / `npm run dev` brings them all up):
+
+| Process | Port | Responsibility |
+| --- | --- | --- |
+| Next.js server | 3000 | Web UI and API |
+| Worker | — | Consumes image / video / voice / text queues |
+| Watchdog | — | Task heartbeat and timeout recovery |
+| Bull Board | 3010 | Queue dashboard (`/admin/queues`) |
+
+Dependencies: **MySQL** (data), **Redis** (queues), **MinIO / S3** (object storage).
 
 ---
 
 ## 🚀 Quick Start
 
-**Prerequisites**: Install [Docker Desktop](https://docs.docker.com/get-docker/)
+**Prerequisite**: install [Docker Desktop](https://docs.docker.com/get-docker/)
 
-### Method 1: Pull Pre-built Image (Easiest)
+### Option 1: Pre-built image (simplest)
 
-No need to clone the repository. Just download and run:
+No clone needed — download and run:
 
 ```bash
-# Download docker-compose.yml
-curl -O https://raw.githubusercontent.com/saturndec/waoowaoo/main/docker-compose.yml
-
-# Start all services
+curl -O https://raw.githubusercontent.com/FALLENONEa/video-create/main/docker-compose.yml
 docker compose up -d
 ```
 
-> ⚠️ This is a beta version. Database is not compatible between versions. To upgrade, clear old data first:
+> During the testing phase, database schemas may be incompatible between versions. Clear old data before upgrading:
+>
+> ```bash
+> docker compose down -v
+> docker rmi ghcr.io/fallenaonea/video-create:latest
+> curl -O https://raw.githubusercontent.com/FALLENONEa/video-create/main/docker-compose.yml
+> docker compose up -d
+> ```
+>
+> Clear your browser cache and re-login after upgrading.
+
+### Option 2: Clone + Docker build
 
 ```bash
-docker compose down -v
-docker rmi ghcr.io/saturndec/waoowaoo:latest
-curl -O https://raw.githubusercontent.com/saturndec/waoowaoo/main/docker-compose.yml
+git clone https://github.com/FALLENONEa/video-create.git
+cd video-create
 docker compose up -d
 ```
 
-> After starting, please **clear your browser cache** and log in again to avoid issues caused by stale cache.
+Update:
 
-### Method 2: Clone & Docker Build (Full Control)
-
-```bash
-git clone https://github.com/saturndec/waoowaoo.git
-cd waoowaoo
-docker compose up -d
-```
-
-To update:
 ```bash
 git pull
 docker compose down && docker compose up -d --build
 ```
 
-### Method 3: Local Development (For Developers)
-
-```bash
-git clone https://github.com/saturndec/waoowaoo.git
-cd waoowaoo
-
-# Copy environment config (must be done before npm install)
-cp .env.example .env
-# ⚠️ Edit .env to fill in your AI API Keys (NEXTAUTH_URL defaults to http://localhost:3000, no change needed)
-
-npm install
-
-# Start infrastructure only
-docker compose up mysql redis minio -d
-
-# Run database migration
-npx prisma db push
-
-# Start development server
-npm run dev
-```
-
----
-
-Visit [http://localhost:13000](http://localhost:13000) (Method 1 & 2) or [http://localhost:3000](http://localhost:3000) (Method 3) to get started!
-
-> The database is initialized automatically on first launch — no extra configuration needed.
+Open [http://localhost:13000](http://localhost:13000) once started. The database initializes automatically on first launch — no extra setup needed.
 
 > [!TIP]
-> **If you experience lag**: HTTP mode may limit browser connections. Install [Caddy](https://caddyserver.com/docs/install) for HTTPS:
-> ```bash
-> caddy run --config Caddyfile
-> ```
-> Then visit [https://localhost:1443](https://localhost:1443)
+> If pages feel sluggish under HTTP, enable HTTPS with [Caddy](https://caddyserver.com/docs/install): `caddy run --config Caddyfile`, then visit https://localhost:1443.
 
 ---
 
 ## 🔧 API Configuration
 
-After launching, go to **Settings** to configure your AI service API keys. A built-in guide is provided.
+After launch, open the **Settings Center** to configure API keys for each AI provider — in-app tutorials are included.
 
-> 💡 **Note**: Currently only official provider APIs are recommended. Third-party compatible formats (OpenAI Compatible) are not yet fully supported and will be improved in future releases.
+> Official provider APIs are recommended; third-party OpenAI-compatible endpoints are still being refined.
 
 ---
 
 ## 📦 Tech Stack
 
-- **Framework**: Next.js 15 + React 19
+- **Framework**: Next.js 15 + React 19 + Tailwind CSS v4
 - **Database**: MySQL + Prisma ORM
 - **Queue**: Redis + BullMQ
-- **Styling**: Tailwind CSS v4
+- **Storage**: MinIO / S3-compatible object storage
 - **Auth**: NextAuth.js
+- **Video rendering**: Remotion
+- **i18n**: next-intl
 
 ---
 
-## 📦 Preview
+## 🛠️ Local Development
 
-![4f7b913264f7f26438c12560340e958c67fa833a](https://github.com/user-attachments/assets/fa0e9c57-9ea0-4df3-893e-b76c4c9d304b)
-![67509361cbe6809d2496a550de5733b9f99a9702](https://github.com/user-attachments/assets/f2fb6a64-5ba8-4896-a064-be0ded213e42)
-![466e13c8fd1fc799d8f588c367ebfa24e1e99bf7](https://github.com/user-attachments/assets/09bbff39-e535-4c67-80a9-69421c3b05ee)
-![c067c197c20b0f1de456357c49cdf0b0973c9b31](https://github.com/user-attachments/assets/688e3147-6e95-43b0-b9e7-dd9af40db8a0)
+```bash
+git clone https://github.com/FALLENONEa/video-create.git
+cd video-create
+
+cp .env.example .env      # before npm install
+# Edit .env and fill in your AI API keys
+
+npm install
+
+# Start only the infra (mysql:13306  redis:16379  minio:19000)
+docker compose up mysql redis minio -d
+
+# Initialize the DB schema on first run
+npx prisma db push
+
+# Start the dev environment (Next + Worker + Watchdog + Bull Board)
+npm run dev
+```
+
+> ⚠️ Skipping `npx prisma db push` leaves tables missing — you'll get `The table 'tasks' does not exist` on startup.
+
+Dev server: [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## 🤝 Contributing
+## 📂 Common Scripts
 
-This project is maintained by the core team. You're welcome to contribute by:
-
-- 🐛 Filing [Issues](https://github.com/saturndec/waoowaoo/issues) — report bugs
-- 💡 Filing [Issues](https://github.com/saturndec/waoowaoo/issues) — propose features
-- 🔧 Submitting Pull Requests as references — we review every PR carefully for ideas, but the team implements fixes internally rather than merging external PRs directly
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start dev env (Next + Worker + Watchdog + Bull Board) |
+| `npm run build` | Production build |
+| `npm run start` | Production start |
+| `npm run typecheck` | TypeScript type check |
+| `npm run lint:all` | Full ESLint check |
+| `npm run test:all` | Full test suite (contract / behavior / system) |
 
 ---
 
-**Made with ❤️ by waoowaoo team**
+## 🤝 Feedback
 
-## Star History
+Bug reports and feature ideas are welcome via [Issues](https://github.com/FALLENONEa/video-create/issues).
 
-[![Star History Chart](https://api.star-history.com/svg?repos=saturndec/waoowaoo&type=date&legend=top-left)](https://www.star-history.com/#saturndec/waoowaoo&type=date&legend=top-left)
+---
+
+## 📄 License
+
+This project is open-sourced under the [LICENSE](LICENSE).
+
+---
+
+> This project is based on the open-source project [waoowaoo](https://github.com/saturndec/waoowaoo).

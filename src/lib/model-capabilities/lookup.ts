@@ -278,29 +278,25 @@ export function resolveGenerationOptionsForModel(input: {
   let normalizedSelection = { ...selection }
   const autofillIssues: CapabilitySelectionValidationIssue[] = []
 
-  // V7: 针对 image 模型缺少 resolution 的情况，如果 catalog 中声明了 resolutionOptions，
-  // 且用户在配置中完全未设置该字段，则自动使用第一个可选值作为默认值，提升 UI/UX。
-  if (input.modelType === 'image') {
-    const optionFields = getCapabilityOptionFields(input.modelType, input.capabilities)
-    const hasResolutionOptions = Array.isArray(optionFields.resolution) && optionFields.resolution.length > 0
-    const hasResolutionInSelection = Object.prototype.hasOwnProperty.call(normalizedSelection, 'resolution')
+  // V7: 通用兜底 —— 对任何 option 字段，只要 catalog 声明了 *Options 且用户配置中缺失，
+  // 且 precheck 报告了 CAPABILITY_REQUIRED，就自动用第一个可选值补全。
+  // 原逻辑只覆盖 image/resolution，现泛化到所有 modelType / 所有字段，
+  // 避免新增 option 字段（如 video.fps）导致存量配置在 requireAllFields 校验时报错。
+  const optionFields = getCapabilityOptionFields(input.modelType, input.capabilities)
+  for (const field of Object.keys(optionFields)) {
+    const fieldOptions = optionFields[field]
+    if (!Array.isArray(fieldOptions) || fieldOptions.length === 0) continue
+    if (Object.prototype.hasOwnProperty.call(normalizedSelection, field)) continue
 
-    if (hasResolutionOptions && !hasResolutionInSelection) {
-      const firstResolution = optionFields.resolution[0]
-
-      // 只有在 capabilities 确实声明了 resolutionOptions，且 validate 阶段报告了
-      // 「resolution 必填但缺失」的情况下，才进行自动补全，避免掩盖其他问题。
-      const missingResolutionIssue = precheckIssues.find(
-        (issue) =>
-          issue.code === 'CAPABILITY_REQUIRED'
-          && issue.field === `capabilities.${input.modelKey}.resolution`,
-      )
-
-      if (missingResolutionIssue && optionFields.resolution.includes(firstResolution)) {
-        normalizedSelection = {
-          ...normalizedSelection,
-          resolution: firstResolution,
-        }
+    const missingIssue = precheckIssues.find(
+      (issue) =>
+        issue.code === 'CAPABILITY_REQUIRED'
+        && issue.field === `capabilities.${input.modelKey}.${field}`,
+    )
+    if (missingIssue) {
+      normalizedSelection = {
+        ...normalizedSelection,
+        [field]: fieldOptions[0],
       }
     }
   }
@@ -318,7 +314,6 @@ export function resolveGenerationOptionsForModel(input: {
     return { options: {}, issues: autofillIssues.length > 0 ? [...autofillIssues, ...issues] : issues }
   }
 
-  const optionFields = getCapabilityOptionFields(input.modelType, input.capabilities)
   const options: Record<string, CapabilityValue> = {}
   for (const field of Object.keys(optionFields)) {
     const value = normalizedSelection[field]

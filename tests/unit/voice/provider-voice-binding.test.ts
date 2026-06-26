@@ -107,4 +107,41 @@ describe('provider voice binding', () => {
       },
     }))).toThrow('SPEAKER_VOICE_ENTRY_MISSING_BINDING')
   })
+
+  it('resolves zhipu binding by reusing fal uploaded reference audio', () => {
+    const map = parseSpeakerVoiceMap(JSON.stringify({
+      Narrator: {
+        provider: 'fal',
+        voiceType: 'uploaded',
+        audioUrl: 'voice/reference.wav',
+      },
+    }))
+
+    const binding = resolveVoiceBindingForProvider({
+      providerKey: 'zhipu',
+      character: { customVoiceUrl: null, voiceId: null },
+      speakerVoice: map.Narrator,
+    })
+
+    // 参考音频引擎无关：fal 上传的参考音频，选 zhipu 模型时直接复用，binding.provider 跟随当前模型
+    expect(binding).toEqual({
+      provider: 'zhipu',
+      source: 'speaker',
+      referenceAudioUrl: 'voice/reference.wav',
+    })
+  })
+
+  it('resolves zhipu binding from character custom voice url', () => {
+    const binding = resolveVoiceBindingForProvider({
+      providerKey: 'zhipu',
+      character: { customVoiceUrl: 'voice/character-voice.wav', voiceId: null },
+      speakerVoice: null,
+    })
+
+    expect(binding).toEqual({
+      provider: 'zhipu',
+      source: 'character',
+      referenceAudioUrl: 'voice/character-voice.wav',
+    })
+  })
 })

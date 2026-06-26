@@ -15,7 +15,12 @@ import {
     useGenerateLocationImage,
     useCreateProjectLocation,
     useGenerateProjectLocationImage,
+    useUploadLocationImage,
+    useUploadProjectLocationImage,
 } from '@/lib/query/hooks'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import CharacterCreationPreview from '@/components/shared/assets/character-creation/CharacterCreationPreview'
+import { useDirectImageUpload } from '@/components/shared/assets/useDirectImageUpload'
 import { useImageGenerationCount } from '@/lib/image-generation/use-image-generation-count'
 import ImageGenerationInlineCountButton from '@/components/image-generation/ImageGenerationInlineCountButton'
 import { getImageGenerationCountOptions } from '@/lib/image-generation/count'
@@ -40,6 +45,14 @@ const SparklesIcon = ({ className }: { className?: string }) => (
     <AppIcon name="sparklesAlt" className={className} />
 )
 
+const UploadIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+)
+
 export function LocationCreationModal({
     mode,
     folderId,
@@ -54,6 +67,16 @@ export function LocationCreationModal({
     const aiCreateProjectLocation = useAiCreateProjectLocation(projectId || '')
     const createProjectLocation = useCreateProjectLocation(projectId || '')
     const generateProjectLocation = useGenerateProjectLocationImage(projectId || '')
+    const uploadAssetHubLocation = useUploadLocationImage()
+    const uploadProjectLocation = useUploadProjectLocationImage(projectId || '')
+    const {
+        uploadFiles,
+        uploadPreviewUrls,
+        fileInputRef: uploadFileInputRef,
+        handleSelect: handleUploadSelect,
+        handleDrop: handleUploadDrop,
+        handleClear: handleUploadClear,
+    } = useDirectImageUpload()
     const {
         count: locationGenerationCount,
         setCount: setLocationGenerationCount,
@@ -65,6 +88,7 @@ export function LocationCreationModal({
     const [aiInstruction, setAiInstruction] = useState('')
     const [artStyle, setArtStyle] = useState('american-comic')
     const [availableSlots, setAvailableSlots] = useState<LocationAvailableSlot[]>([])
+    const [createMode, setCreateMode] = useState<'description' | 'upload'>('description')
 
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isAiDesigning, setIsAiDesigning] = useState(false)
@@ -251,6 +275,68 @@ export function LocationCreationModal({
         }
     }
 
+    // 上传图片作为场景图（不走 AI 生成）：先创建场景拿到 id，再逐张上传
+    const handleUploadSubmit = async () => {
+        if (!name.trim() || uploadFiles.length === 0) return
+
+        try {
+            setIsSubmitting(true)
+            const descText = description.trim() || name.trim()
+
+            let locationId = ''
+            if (mode === 'asset-hub') {
+                const result = await createAssetHubLocation.mutateAsync({
+                    name: name.trim(),
+                    summary: descText,
+                    artStyle,
+                    folderId: folderId ?? null,
+                }) as CreatedLocationResponse
+                locationId = result.location?.id ?? ''
+            } else {
+                const result = await createProjectLocation.mutateAsync({
+                    name: name.trim(),
+                    description: descText,
+                    artStyle,
+                }) as CreatedLocationResponse
+                locationId = result.location?.id ?? ''
+            }
+            if (!locationId) {
+                throw new Error(t('errors.createFailed'))
+            }
+
+            if (mode === 'asset-hub') {
+                for (let i = 0; i < uploadFiles.length; i += 1) {
+                    await uploadAssetHubLocation.mutateAsync({
+                        file: uploadFiles[i],
+                        locationId,
+                        labelText: name.trim(),
+                        imageIndex: i,
+                    })
+                }
+            } else {
+                for (let i = 0; i < uploadFiles.length; i += 1) {
+                    await uploadProjectLocation.mutateAsync({
+                        file: uploadFiles[i],
+                        locationId,
+                        labelText: name.trim(),
+                        imageIndex: i,
+                    })
+                }
+            }
+
+            onSuccess()
+            onClose()
+        } catch (error: unknown) {
+            if (getErrorStatus(error) === 402) {
+                alert(getErrorMessage(error, t('errors.insufficientBalance')))
+            } else if (shouldShowError(error)) {
+                alert(getErrorMessage(error, t('errors.createFailed')))
+            }
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
     // 处理点击遮罩层关闭
     const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (e.target === e.currentTarget && !isSubmitting && !isAiDesigning) {
@@ -293,6 +379,19 @@ export function LocationCreationModal({
                             />
                         </div>
 
+                        <div className="mb-1">
+                            <SegmentedControl
+                                options={[
+                                    { value: 'description', label: <><SparklesIcon className="w-4 h-4" /><span>{t('location.modeDescription')}</span></> },
+                                    { value: 'upload', label: <><UploadIcon className="w-4 h-4" /><span>{t('location.modeUpload')}</span></> },
+                                ]}
+                                value={createMode}
+                                onChange={(val) => setCreateMode(val as 'description' | 'upload')}
+                            />
+                        </div>
+
+                        {createMode === 'description' && (
+                        <>
                         {mode === 'asset-hub' && (
                             <div className="space-y-2">
                                 <label className="glass-field-label block">
@@ -370,6 +469,41 @@ export function LocationCreationModal({
                                 disabled={isAiDesigning}
                             />
                         </div>
+                        </>
+                        )}
+
+                        {createMode === 'upload' && (
+                        <>
+                            <div className="glass-surface-soft rounded-xl p-4 space-y-3 border border-[var(--glass-stroke-base)]">
+                                <div className="flex items-center gap-2 text-sm font-medium text-[var(--glass-tone-info-fg)]">
+                                    <UploadIcon className="w-4 h-4" />
+                                    <span>{t('location.uploadTitle')}</span>
+                                </div>
+                                <p className="text-xs text-[var(--glass-text-secondary)]">
+                                    {t('location.uploadTip')}
+                                </p>
+                                <CharacterCreationPreview
+                                    referenceImagesBase64={uploadPreviewUrls}
+                                    fileInputRef={uploadFileInputRef}
+                                    onDrop={handleUploadDrop}
+                                    onFileSelect={handleUploadSelect}
+                                    onClearReference={handleUploadClear}
+                                    variant="upload"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="glass-field-label block">
+                                    {t('location.description')}
+                                </label>
+                                <textarea
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder={t('location.descPlaceholder')}
+                                    className="glass-textarea-base w-full px-3 py-2 text-sm resize-none"
+                                />
+                            </div>
+                        </>
+                        )}
                     </div>
                 </div>
 
@@ -382,6 +516,20 @@ export function LocationCreationModal({
                     >
                         {t('common.cancel')}
                     </button>
+                    {createMode === 'upload' ? (
+                        <button
+                            onClick={handleUploadSubmit}
+                            disabled={isSubmitting || !name.trim() || uploadFiles.length === 0}
+                            className="glass-btn-base glass-btn-primary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2"
+                        >
+                            {isSubmitting ? (
+                                <TaskStatusInline state={submittingState} className="text-white [&>span]:text-white [&_svg]:text-white" />
+                            ) : (
+                                <span>{mode === 'asset-hub' ? t('common.addOnlyToAssetHubLocation') : t('common.addOnlyLocation')}</span>
+                            )}
+                        </button>
+                    ) : (
+                    <>
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitting || !name.trim() || !description.trim()}
@@ -406,6 +554,8 @@ export function LocationCreationModal({
                         className="glass-btn-base glass-btn-primary flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                         selectClassName="appearance-none bg-transparent border-0 pl-0 pr-3 text-sm font-semibold text-current outline-none cursor-pointer leading-none transition-colors"
                     />
+                    </>
+                    )}
                 </div>
             </div>
         </div>

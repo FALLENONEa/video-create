@@ -5,6 +5,12 @@
         "namePlaceholder": "Enter character name",
         "modeReference": "Reference Image",
         "modeDescription": "Description",
+        "modeUpload": "Upload Image",
+        "uploadAsAppearance": "Upload Appearance",
+        "uploadAppearanceTip": "Upload an image directly as the character appearance, no AI generation",
+        "uploadDropOrClick": "Click to upload or drag image",
+        "uploadMaxImages": "Up to 5 images",
+        "uploadSelectedCount": "Selected {count}/5 images",
         "isSubAppearance": "This is a sub-appearance",
         "isSubAppearanceHint": "Add a new appearance state for an existing character",
         "uploadReference": "Upload Reference",
@@ -49,7 +55,11 @@
         "name": "Location Name",
         "namePlaceholder": "Enter location name",
         "description": "Location Description",
-        "descPlaceholder": "Enter location description..."
+        "descPlaceholder": "Enter location description...",
+        "modeDescription": "Description",
+        "modeUpload": "Upload Image",
+        "uploadTitle": "Upload Location Image",
+        "uploadTip": "Upload an image directly as the location, no AI generation"
     },
     "prop": {
         "title": "New Prop",
@@ -58,7 +68,11 @@
         "summary": "Summary",
         "summaryPlaceholder": "One-line human summary of the prop, without plot usage...",
         "description": "Image Description",
-        "descriptionPlaceholder": "Describe only the prop itself: material, color, structure, and decoration..."
+        "descriptionPlaceholder": "Describe only the prop itself: material, color, structure, and decoration...",
+        "modeDescription": "Description",
+        "modeUpload": "Upload Image",
+        "uploadTitle": "Upload Prop Image",
+        "uploadTip": "Upload an image directly as the prop, no AI generation"
     },
     "artStyle": {
         "title": "Art Style"

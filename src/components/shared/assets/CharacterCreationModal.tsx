@@ -31,18 +31,21 @@ export function CharacterCreationModal({
 }: CharacterCreationModalProps) {
   const t = useTranslations('assetModal')
 
-  const [createMode, setCreateMode] = useState<'reference' | 'description'>('description')
+  const [createMode, setCreateMode] = useState<'reference' | 'description' | 'upload'>('description')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [aiInstruction, setAiInstruction] = useState('')
   const [artStyle, setArtStyle] = useState('american-comic')
   const [referenceImagesBase64, setReferenceImagesBase64] = useState<string[]>([])
   const [referenceSubMode, setReferenceSubMode] = useState<'direct' | 'extract'>('direct')
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+  const [uploadPreviewUrls, setUploadPreviewUrls] = useState<string[]>([])
   const [isSubAppearance, setIsSubAppearance] = useState(false)
   const [selectedCharacterId, setSelectedCharacterId] = useState('')
   const [changeReason, setChangeReason] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadFileInputRef = useRef<HTMLInputElement>(null)
 
   const projectAssets = useProjectAssets(mode === 'project' ? (projectId ?? null) : null)
   const availableCharacters = useMemo(() => {
@@ -68,6 +71,7 @@ export function CharacterCreationModal({
     handleAiDesign,
     handleSubmit,
     handleSubmitAndGenerate,
+    handleCreateWithUpload,
   } = useCharacterCreationSubmit({
     mode,
     folderId,
@@ -158,6 +162,41 @@ export function CharacterCreationModal({
     setReferenceImagesBase64([])
   }
 
+  const handleUploadFileSelect = useCallback((files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter((f) => f.type.startsWith('image/'))
+    if (fileArray.length === 0) return
+    const remaining = 5 - uploadFiles.length
+    const toAdd = fileArray.slice(0, remaining)
+    const newUrls = toAdd.map((f) => URL.createObjectURL(f))
+    setUploadFiles((prev) => [...prev, ...toAdd])
+    setUploadPreviewUrls((prev) => [...prev, ...newUrls])
+  }, [uploadFiles.length])
+
+  const handleUploadDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer.files.length > 0) {
+      handleUploadFileSelect(e.dataTransfer.files)
+    }
+  }
+
+  const handleClearUpload = (index?: number) => {
+    if (typeof index === 'number') {
+      setUploadFiles((prev) => prev.filter((_, i) => i !== index))
+      setUploadPreviewUrls((prev) => {
+        const removed = prev[index]
+        if (removed) URL.revokeObjectURL(removed)
+        return prev.filter((_, i) => i !== index)
+      })
+      return
+    }
+    setUploadPreviewUrls((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url))
+      return []
+    })
+    setUploadFiles([])
+  }
+
   const handleBackdropClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSubmitting && !isAiDesigning) {
       onClose()
@@ -186,7 +225,10 @@ export function CharacterCreationModal({
           <CharacterCreationForm
             mode={mode}
             createMode={createMode}
-            setCreateMode={(value) => setCreateMode(value)}
+            setCreateMode={(value) => {
+              setCreateMode(value)
+              if (value === 'upload') setIsSubAppearance(false)
+            }}
             name={name}
             setName={(value) => setName(value)}
             description={description}
@@ -209,6 +251,11 @@ export function CharacterCreationModal({
             handleDrop={handleDrop}
             handleFileSelect={(files) => void handleFileSelect(files)}
             handleClearReference={handleClearReference}
+            uploadPreviewUrls={uploadPreviewUrls}
+            uploadFileInputRef={uploadFileInputRef}
+            handleUploadDrop={handleUploadDrop}
+            handleUploadFileSelect={(files) => void handleUploadFileSelect(files)}
+            handleClearUpload={handleClearUpload}
             handleExtractDescription={() => { void handleExtractDescription() }}
             handleAiDesign={() => { void handleAiDesign() }}
             isSubmitting={isSubmitting}
@@ -239,6 +286,14 @@ export function CharacterCreationModal({
               className="glass-btn-base glass-btn-primary flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               selectClassName="appearance-none bg-transparent border-0 pl-0 pr-3 text-sm font-semibold text-current outline-none cursor-pointer leading-none transition-colors"
             />
+          ) : createMode === 'upload' ? (
+            <button
+              onClick={() => { void handleCreateWithUpload(uploadFiles) }}
+              disabled={isSubmitting || !name.trim() || uploadFiles.length === 0}
+              className="glass-btn-base glass-btn-primary px-4 py-2 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? t('common.adding') : (mode === 'asset-hub' ? t('common.addOnlyToAssetHub') : t('common.addOnly'))}
+            </button>
           ) : isSubAppearance ? (
             <button
               onClick={() => { void handleSubmit() }}

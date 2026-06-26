@@ -8,7 +8,7 @@ export async function runGlobalTeardown() {
   if (!shouldBootstrap) return
   if (process.env.BILLING_TEST_KEEP_SERVICES === '1') return
 
-  execSync('docker compose -f docker-compose.test.yml down -v --remove-orphans', {
+  execSync('docker compose -p waoowaoo-test -f docker-compose.test.yml down -v --remove-orphans', {
     cwd: process.cwd(),
     stdio: 'inherit',
   })

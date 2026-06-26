@@ -184,3 +184,119 @@ export async function zhipuCreateImage(
     }
     return result
 }
+
+/** 音色复刻请求体（POST /voice/clone）。 */
+export interface ZhipuVoiceCloneRequest {
+    model: 'glm-tts-clone'
+    voice_name: string
+    file_id: string
+    input: string
+    text?: string
+    request_id?: string
+}
+
+/** 音色复刻响应。file_id 为试听音频文件 ID，需通过 zhipuDownloadFile 取回。 */
+export interface ZhipuVoiceCloneResult {
+    voice?: string
+    file_id?: string
+    file_purpose?: string
+    request_id?: string
+}
+
+/**
+ * 上传文件，返回 file_id。POST /files。
+ * 用于音色复刻上传示例音频等场景。
+ *
+ * purpose 合法枚举：batch / code-interpreter / agent / voice-clone-input。
+ * 音色复刻参考音频固定用 'voice-clone-input'（官方仅支持 mp3/wav，≤10M，建议 3-30 秒）。
+ * multipart 表单字段名为 file / purpose。
+ */
+export async function zhipuUploadFile(
+    buffer: Buffer,
+    filename: string,
+    purpose: string,
+    options: { apiKey: string; logPrefix?: string },
+): Promise<string> {
+    if (!options.apiKey) throw new Error('请配置智谱 API Key')
+    const logPrefix = options.logPrefix || '[Zhipu File]'
+    const form = new FormData()
+    form.append('file', new Blob([Uint8Array.from(buffer)]), filename)
+    form.append('purpose', purpose)
+
+    const response = await fetchWithTimeout(`${ZHIPU_BASE_URL}/files`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${options.apiKey}` },
+        body: form,
+    })
+    const text = await response.text().catch(() => '')
+    if (!response.ok) {
+        const message = extractZhipuError(safeJson(text), `${logPrefix} 文件上传失败: ${response.status}`)
+        _ulogError(`${logPrefix} 上传失败: ${response.status} ${message}`)
+        throw new Error(`${logPrefix} 文件上传失败: ${message}`)
+    }
+    const data = safeJson(text) as { id?: string; file_id?: string } | null
+    const fileId = (data?.id || data?.file_id || '').trim()
+    if (!fileId) {
+        throw new Error(`${logPrefix} 文件上传响应缺少 file_id`)
+    }
+    return fileId
+}
+
+/**
+ * 音色复刻：基于示例音频生成指定音色的语音。POST /voice/clone。
+ * 返回试听音频 file_id，需再调 zhipuDownloadFile 取回音频内容。
+ */
+export async function zhipuVoiceClone(
+    request: ZhipuVoiceCloneRequest,
+    options: { apiKey: string; logPrefix?: string },
+): Promise<ZhipuVoiceCloneResult> {
+    if (!options.apiKey) throw new Error('请配置智谱 API Key')
+    const logPrefix = options.logPrefix || '[Zhipu Voice Clone]'
+    _ulogInfo(`${logPrefix} voice_name=${request.voice_name}, input 长度=${request.input.length}`)
+
+    const response = await fetchWithTimeout(`${ZHIPU_BASE_URL}/voice/clone`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${options.apiKey}`,
+        },
+        body: JSON.stringify(request),
+    })
+    const text = await response.text().catch(() => '')
+    if (!response.ok) {
+        const message = extractZhipuError(safeJson(text), `${logPrefix} 音色复刻失败: ${response.status}`)
+        _ulogError(`${logPrefix} 失败: ${response.status} ${message}`)
+        throw new Error(`${logPrefix} 音色复刻失败: ${message}`)
+    }
+    const result = (safeJson(text) as ZhipuVoiceCloneResult) || null
+    if (!result || !result.file_id) {
+        throw new Error(`${logPrefix} 音色复刻响应缺少试听音频 file_id`)
+    }
+    return result
+}
+
+/**
+ * 下载文件内容。GET /files/{file_id}/content。
+ * 返回二进制 Buffer，用于取回音色复刻试听音频等。
+ */
+export async function zhipuDownloadFile(
+    fileId: string,
+    options: { apiKey: string; logPrefix?: string },
+): Promise<Buffer> {
+    if (!options.apiKey) throw new Error('请配置智谱 API Key')
+    const logPrefix = options.logPrefix || '[Zhipu File]'
+    const response = await fetchWithTimeout(
+        `${ZHIPU_BASE_URL}/files/${encodeURIComponent(fileId)}/content`,
+        {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${options.apiKey}` },
+        },
+    )
+    if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        const message = extractZhipuError(safeJson(text), `${logPrefix} 文件下载失败: ${response.status}`)
+        _ulogError(`${logPrefix} 下载失败: ${response.status} ${message}`)
+        throw new Error(`${logPrefix} 文件下载失败: ${message}`)
+    }
+    return Buffer.from(await response.arrayBuffer())
+}

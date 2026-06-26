@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const prismaMock = vi.hoisted(() => ({
   novelPromotionVoiceLine: {
@@ -26,6 +26,10 @@ const resolveStorageKeyFromMediaValueMock = vi.hoisted(() => vi.fn())
 const synthesizeWithBailianTTSMock = vi.hoisted(() => vi.fn())
 const falSubscribeMock = vi.hoisted(() => vi.fn())
 const getProviderConfigMock = vi.hoisted(() => vi.fn())
+const zhipuUploadFileMock = vi.hoisted(() => vi.fn())
+const zhipuVoiceCloneMock = vi.hoisted(() => vi.fn())
+const zhipuDownloadFileMock = vi.hoisted(() => vi.fn())
+const fetchMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
@@ -55,6 +59,12 @@ vi.mock('@/lib/media/service', () => ({
 
 vi.mock('@/lib/providers/bailian', () => ({
   synthesizeWithBailianTTS: synthesizeWithBailianTTSMock,
+}))
+
+vi.mock('@/lib/zhipu-api', () => ({
+  zhipuUploadFile: zhipuUploadFileMock,
+  zhipuVoiceClone: zhipuVoiceCloneMock,
+  zhipuDownloadFile: zhipuDownloadFileMock,
 }))
 
 vi.mock('@fal-ai/client', () => ({
@@ -181,6 +191,128 @@ describe('generate voice line with bailian provider', () => {
       }),
     ).rejects.toThrow('无效音色ID，QwenTTS 必须使用 AI 设计音色')
 
+    expect(uploadObjectMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('generate voice line with zhipu provider', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const refBytes = Uint8Array.from([10, 20, 30, 40])
+    const audioBytes = Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+
+    prismaMock.novelPromotionVoiceLine.findUnique.mockResolvedValue({
+      id: 'line-1',
+      episodeId: 'episode-1',
+      speaker: 'Narrator',
+      content: '你好，世界',
+      emotionPrompt: null,
+      emotionStrength: null,
+    })
+    prismaMock.novelPromotionProject.findUnique.mockResolvedValue({ characters: [] })
+    prismaMock.novelPromotionEpisode.findUnique.mockResolvedValue({
+      speakerVoices: JSON.stringify({
+        Narrator: {
+          provider: 'fal',
+          voiceType: 'uploaded',
+          audioUrl: 'voice/reference.wav',
+        },
+      }),
+    })
+
+    resolveModelSelectionOrSingleMock.mockResolvedValue({
+      provider: 'zhipu',
+      modelId: 'glm-tts-clone',
+      modelKey: 'zhipu::glm-tts-clone',
+      mediaType: 'audio',
+    })
+    getProviderConfigMock.mockResolvedValue({
+      id: 'zhipu',
+      name: 'Zhipu AI',
+      apiKey: 'zp-key',
+    })
+
+    // downloadAudioData 内部走 fetch 拉取参考音频
+    fetchMock.mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () =>
+        refBytes.buffer.slice(refBytes.byteOffset, refBytes.byteOffset + refBytes.byteLength),
+    })
+
+    zhipuUploadFileMock.mockResolvedValue('file-id-123')
+    zhipuVoiceCloneMock.mockResolvedValue({
+      voice: 'voice_clone_x',
+      file_id: 'preview-id-456',
+      file_purpose: 'voice-clone-output',
+    })
+    zhipuDownloadFileMock.mockResolvedValue(Buffer.from(audioBytes))
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('uses uploaded reference audio to clone voice via zhipu and persists output', async () => {
+    const result = await generateVoiceLine({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      lineId: 'line-1',
+      userId: 'user-1',
+      audioModel: 'zhipu::glm-tts-clone',
+    })
+
+    expect(getProviderConfigMock).toHaveBeenCalledWith('user-1', 'zhipu')
+    expect(zhipuUploadFileMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      'reference.wav',
+      'voice-clone-input',
+      expect.objectContaining({ apiKey: 'zp-key' }),
+    )
+    expect(zhipuVoiceCloneMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'glm-tts-clone',
+        file_id: 'file-id-123',
+        input: '你好，世界',
+      }),
+      expect.objectContaining({ apiKey: 'zp-key' }),
+    )
+    expect(zhipuDownloadFileMock).toHaveBeenCalledWith('preview-id-456', expect.objectContaining({ apiKey: 'zp-key' }))
+    expect(uploadObjectMock).toHaveBeenCalledTimes(1)
+    expect(prismaMock.novelPromotionVoiceLine.update).toHaveBeenCalledWith({
+      where: { id: 'line-1' },
+      data: {
+        audioUrl: 'voice/storage/line-1.wav',
+        audioDuration: expect.any(Number),
+      },
+    })
+    expect(result.lineId).toBe('line-1')
+    expect(result.storageKey).toBe('voice/storage/line-1.wav')
+  })
+
+  it('fails explicitly when zhipu speaker has no reference audio', async () => {
+    prismaMock.novelPromotionEpisode.findUnique.mockResolvedValueOnce({
+      speakerVoices: JSON.stringify({
+        Narrator: {
+          provider: 'bailian',
+          voiceType: 'qwen-designed',
+          voiceId: 'qwen-tts-vd-001',
+        },
+      }),
+    })
+
+    await expect(
+      generateVoiceLine({
+        projectId: 'project-1',
+        episodeId: 'episode-1',
+        lineId: 'line-1',
+        userId: 'user-1',
+        audioModel: 'zhipu::glm-tts-clone',
+      }),
+    ).rejects.toThrow('请先为该发言人设置参考音频')
+
+    expect(zhipuUploadFileMock).not.toHaveBeenCalled()
     expect(uploadObjectMock).not.toHaveBeenCalled()
   })
 })

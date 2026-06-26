@@ -11,6 +11,8 @@ interface CharacterCreationPreviewProps {
   onDrop: (event: DragEvent<HTMLDivElement>) => void
   onFileSelect: (files: FileList) => void
   onClearReference: (index?: number) => void
+  /** 预览场景：reference = 参考图生成；upload = 直接上传当形象 */
+  variant?: 'reference' | 'upload'
 }
 
 const PhotoIcon = ({ className }: { className?: string }) => (
@@ -23,8 +25,16 @@ export default function CharacterCreationPreview({
   onDrop,
   onFileSelect,
   onClearReference,
+  variant = 'reference',
 }: CharacterCreationPreviewProps) {
   const t = useTranslations('assetModal')
+  const isUpload = variant === 'upload'
+  const emptyText = isUpload ? t('character.uploadDropOrClick') : t('character.dropOrClick')
+  const emptyHint = isUpload ? t('character.uploadMaxImages') : t('character.maxReferenceImages')
+  const selectedText = isUpload
+    ? t('character.uploadSelectedCount', { count: referenceImagesBase64.length })
+    : t('character.selectedCount', { count: referenceImagesBase64.length })
+  const altLabel = isUpload ? t('character.uploadAsAppearance') : t('character.uploadReference')
 
   return (
     <div
@@ -49,7 +59,7 @@ export default function CharacterCreationPreview({
               <div key={index} className="relative aspect-square">
                 <MediaImageWithLoading
                   src={base64}
-                  alt={`参考图 ${index + 1}`}
+                  alt={`${altLabel} ${index + 1}`}
                   containerClassName="w-full h-full rounded"
                   className="w-full h-full object-cover rounded"
                 />
@@ -66,14 +76,14 @@ export default function CharacterCreationPreview({
             ))}
           </div>
           <p className="text-xs text-center text-[var(--glass-text-secondary)]">
-            {t('character.selectedCount', { count: referenceImagesBase64.length })}
+            {selectedText}
           </p>
         </div>
       ) : (
         <>
           <PhotoIcon className="w-10 h-10 text-[var(--glass-text-tertiary)] mb-2" />
-          <p className="text-sm text-[var(--glass-text-secondary)]">{t('character.dropOrClick')}</p>
-          <p className="text-xs text-[var(--glass-text-tertiary)] mt-1">{t('character.maxReferenceImages')}</p>
+          <p className="text-sm text-[var(--glass-text-secondary)]">{emptyText}</p>
+          <p className="text-xs text-[var(--glass-text-tertiary)] mt-1">{emptyHint}</p>
         </>
       )}
     </div>

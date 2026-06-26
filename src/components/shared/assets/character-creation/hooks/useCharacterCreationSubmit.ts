@@ -15,6 +15,8 @@ import {
   useExtractProjectReferenceCharacterDescription,
   useUploadAssetHubTempMedia,
   useUploadProjectTempMedia,
+  useUploadCharacterImage,
+  useUploadProjectCharacterImage,
 } from '@/lib/query/hooks'
 import { useImageGenerationCount } from '@/lib/image-generation/use-image-generation-count'
 
@@ -69,6 +71,8 @@ export function useCharacterCreationSubmit({
 
   const uploadAssetHubTemp = useUploadAssetHubTempMedia()
   const uploadProjectTemp = useUploadProjectTempMedia()
+  const uploadAssetHubCharacterImage = useUploadCharacterImage()
+  const uploadProjectCharacterImage = useUploadProjectCharacterImage(projectId ?? '')
   const aiDesignAssetHubCharacter = useAiDesignCharacter()
   const aiCreateProjectCharacter = useAiCreateProjectCharacter(projectId ?? '')
   const extractAssetHubDescription = useExtractAssetHubReferenceCharacterDescription()
@@ -360,6 +364,80 @@ export function useCharacterCreationSubmit({
     t,
   ])
 
+  // 直接上传图片作为角色形象（不走 AI 生成）：先创建角色拿到形象标识，再逐张上传
+  const handleCreateWithUpload = useCallback(async (uploadFiles: File[]) => {
+    if (!name.trim() || uploadFiles.length === 0) return
+
+    try {
+      setIsSubmitting(true)
+      const descText = description.trim() || t('character.defaultDescription', { name: name.trim() })
+
+      if (mode === 'asset-hub') {
+        const result = await createAssetHubCharacter.mutateAsync({
+          name: name.trim(),
+          description: descText,
+          folderId: folderId ?? null,
+          artStyle,
+        }) as CreatedCharacterResponse
+        const createdCharacterId = result.character?.id
+        const createdAppearanceIndex = result.character?.appearances?.[0]?.appearanceIndex
+        if (!createdCharacterId || createdAppearanceIndex === undefined) {
+          throw new Error(t('errors.createFailed'))
+        }
+        for (let i = 0; i < uploadFiles.length; i += 1) {
+          await uploadAssetHubCharacterImage.mutateAsync({
+            file: uploadFiles[i],
+            characterId: createdCharacterId,
+            appearanceIndex: createdAppearanceIndex,
+            labelText: name.trim(),
+            imageIndex: i,
+          })
+        }
+      } else {
+        const result = await createProjectCharacter.mutateAsync({
+          name: name.trim(),
+          description: descText,
+        }) as CreatedCharacterResponse
+        const createdCharacterId = result.character?.id
+        const createdAppearanceId = result.character?.appearances?.[0]?.id
+        if (!createdCharacterId || !createdAppearanceId) {
+          throw new Error(t('errors.createFailed'))
+        }
+        for (let i = 0; i < uploadFiles.length; i += 1) {
+          await uploadProjectCharacterImage.mutateAsync({
+            file: uploadFiles[i],
+            characterId: createdCharacterId,
+            appearanceId: createdAppearanceId,
+            labelText: name.trim(),
+            imageIndex: i,
+          })
+        }
+      }
+
+      onSuccess()
+      onClose()
+    } catch (error: unknown) {
+      if (shouldShowError(error)) {
+        alert(getErrorMessage(error, t('errors.createFailed')))
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [
+    artStyle,
+    createAssetHubCharacter,
+    createProjectCharacter,
+    description,
+    folderId,
+    mode,
+    name,
+    onClose,
+    onSuccess,
+    t,
+    uploadAssetHubCharacterImage,
+    uploadProjectCharacterImage,
+  ])
+
   return {
     isSubmitting,
     isAiDesigning,
@@ -373,5 +451,6 @@ export function useCharacterCreationSubmit({
     handleAiDesign,
     handleSubmit,
     handleSubmitAndGenerate,
+    handleCreateWithUpload,
   }
 }

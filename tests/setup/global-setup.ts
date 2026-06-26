@@ -75,12 +75,12 @@ export default async function globalSetup() {
     return async () => {}
   }
 
-  execSync('docker compose -f docker-compose.test.yml down -v --remove-orphans', {
+  execSync('docker compose -p waoowaoo-test -f docker-compose.test.yml down -v --remove-orphans', {
     cwd: process.cwd(),
     stdio: 'inherit',
   })
 
-  execSync('docker compose -f docker-compose.test.yml up -d --remove-orphans', {
+  execSync('docker compose -p waoowaoo-test -f docker-compose.test.yml up -d --remove-orphans', {
     cwd: process.cwd(),
     stdio: 'inherit',
   })

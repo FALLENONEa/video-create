@@ -77,7 +77,7 @@ export const POST = apiHandler(async (
 
     // 上传到COS
     const key = generateUniqueKey(`voice/custom/${projectId}/${characterId}`, 'wav')
-    const cosUrl = await uploadObject(audioBuffer, key)
+    const cosUrl = await uploadObject(audioBuffer, key, undefined, 'audio/wav')
 
     // 更新角色音色设置
     const character = await prisma.novelPromotionCharacter.update({
@@ -126,9 +126,10 @@ export const POST = apiHandler(async (
   // 获取文件扩展名
   const ext = file.name.split('.').pop()?.toLowerCase() || 'mp3'
 
-  // 上传到COS
+  // 上传到COS（必须传 contentType，否则 MinIO 默认存 application/octet-stream，浏览器 new Audio 拒绝播放）
+  const audioContentType = file.type || (ext === 'm4a' ? 'audio/mp4' : ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : 'audio/mpeg')
   const key = generateUniqueKey(`voice/custom/${projectId}/${characterId}`, ext)
-  const audioUrl = await uploadObject(buffer, key)
+  const audioUrl = await uploadObject(buffer, key, undefined, audioContentType)
 
   // 更新角色音色设置为自定义
   const character = await prisma.novelPromotionCharacter.update({

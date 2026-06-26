@@ -61,7 +61,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
 
         const audioBuffer = Buffer.from(audioBase64, 'base64')
         const key = generateUniqueKey(`global-voice/${session.user.id}/${characterId}`, 'wav')
-        const cosUrl = await uploadObject(audioBuffer, key)
+        const cosUrl = await uploadObject(audioBuffer, key, undefined, 'audio/wav')
 
         await db.globalCharacter.update({
             where: { id: characterId },
@@ -107,7 +107,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const buffer = Buffer.from(arrayBuffer)
     const ext = file.name.split('.').pop()?.toLowerCase() || 'mp3'
     const key = generateUniqueKey(`global-voice/${session.user.id}/${characterId}`, ext)
-    const audioUrl = await uploadObject(buffer, key)
+    const audioContentType = file.type || (ext === 'm4a' ? 'audio/mp4' : ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : 'audio/mpeg')
+    const audioUrl = await uploadObject(buffer, key, undefined, audioContentType)
 
     await db.globalCharacter.update({
         where: { id: characterId },

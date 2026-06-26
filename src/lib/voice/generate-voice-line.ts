@@ -6,6 +6,7 @@ import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { extractStorageKey, getSignedUrl, toFetchableUrl, uploadObject } from '@/lib/storage'
 import { resolveStorageKeyFromMediaValue } from '@/lib/media/service'
 import { synthesizeWithBailianTTS } from '@/lib/providers/bailian'
+import { zhipuUploadFile, zhipuVoiceClone, zhipuDownloadFile } from '@/lib/zhipu-api'
 import {
   parseSpeakerVoiceMap,
   resolveVoiceBindingForProvider,
@@ -120,6 +121,45 @@ async function generateVoiceWithIndexTTS2(params: {
     audioData,
     audioDuration: getWavDurationFromBuffer(audioData),
   }
+}
+
+async function generateVoiceWithZhipuClone(params: {
+  referenceAudioUrl: string
+  text: string
+  apiKey: string
+}): Promise<{ audioData: Buffer; audioDuration: number }> {
+  _ulogInfo(`Zhipu Voice Clone: 克隆合成, input 长度=${params.text.length}`)
+
+  // 1. 拉取参考音频
+  const refBuffer = await downloadAudioData(params.referenceAudioUrl)
+
+  // 2. 上传到智谱文件接口拿 file_id（音色复刻参考音频 purpose 固定为 'voice-clone-input'，官方仅支持 mp3/wav）
+  const fileId = await zhipuUploadFile(refBuffer, 'reference.wav', 'voice-clone-input', {
+    apiKey: params.apiKey,
+    logPrefix: '[Zhipu Voice Clone]',
+  })
+
+  // 3. 音色复刻：voice_name 需全局唯一，用时间戳 + 随机后缀
+  const voiceName = `clone_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const result = await zhipuVoiceClone(
+    {
+      model: 'glm-tts-clone',
+      voice_name: voiceName,
+      file_id: fileId,
+      input: params.text,
+    },
+    { apiKey: params.apiKey, logPrefix: '[Zhipu Voice Clone]' },
+  )
+  if (!result.file_id) {
+    throw new Error('智谱音色复刻未返回试听音频')
+  }
+
+  // 4. 下载试听音频
+  const audioData = await zhipuDownloadFile(result.file_id, {
+    apiKey: params.apiKey,
+    logPrefix: '[Zhipu Voice Clone]',
+  })
+  return { audioData, audioDuration: getWavDurationFromBuffer(audioData) }
 }
 
 function matchCharacterBySpeaker(
@@ -261,6 +301,17 @@ export async function generateVoiceLine(params: {
       audioData,
       audioDuration: result.audioDuration ?? getWavDurationFromBuffer(audioData),
     }
+  } else if (providerKey === 'zhipu') {
+    if (!voiceBinding || voiceBinding.provider !== 'zhipu') {
+      throw new Error('请先为该发言人设置参考音频')
+    }
+    const fullAudioUrl = await resolveReferenceAudioUrl(voiceBinding.referenceAudioUrl)
+    const { apiKey } = await getProviderConfig(params.userId, audioSelection.provider)
+    generated = await generateVoiceWithZhipuClone({
+      referenceAudioUrl: fullAudioUrl,
+      text,
+      apiKey,
+    })
   } else {
     throw new Error(`AUDIO_PROVIDER_UNSUPPORTED: ${audioSelection.provider}`)
   }

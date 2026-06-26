@@ -17,8 +17,8 @@ interface AvailableCharacter {
 
 interface CharacterCreationFormProps {
   mode: Mode
-  createMode: 'reference' | 'description'
-  setCreateMode: (mode: 'reference' | 'description') => void
+  createMode: 'reference' | 'description' | 'upload'
+  setCreateMode: (mode: 'reference' | 'description' | 'upload') => void
   name: string
   setName: (value: string) => void
   description: string
@@ -41,6 +41,11 @@ interface CharacterCreationFormProps {
   handleDrop: (event: DragEvent<HTMLDivElement>) => void
   handleFileSelect: (files: FileList) => void
   handleClearReference: (index?: number) => void
+  uploadPreviewUrls: string[]
+  uploadFileInputRef: RefObject<HTMLInputElement | null>
+  handleUploadDrop: (event: DragEvent<HTMLDivElement>) => void
+  handleUploadFileSelect: (files: FileList) => void
+  handleClearUpload: (index?: number) => void
   handleExtractDescription: () => void
   handleAiDesign: () => void
   isSubmitting: boolean
@@ -54,6 +59,14 @@ const SparklesIcon = ({ className }: { className?: string }) => (
 
 const PhotoIcon = ({ className }: { className?: string }) => (
   <AppIcon name="image" className={className} />
+)
+
+const UploadIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
 )
 
 export default function CharacterCreationForm({
@@ -82,6 +95,11 @@ export default function CharacterCreationForm({
   handleDrop,
   handleFileSelect,
   handleClearReference,
+  uploadPreviewUrls,
+  uploadFileInputRef,
+  handleUploadDrop,
+  handleUploadFileSelect,
+  handleClearUpload,
   handleExtractDescription,
   handleAiDesign,
   isSubmitting,
@@ -97,13 +115,14 @@ export default function CharacterCreationForm({
           options={[
             { value: 'description', label: <><SparklesIcon className="w-4 h-4" /><span>{t('character.modeDescription')}</span></> },
             { value: 'reference', label: <><PhotoIcon className="w-4 h-4" /><span>{t('character.modeReference')}</span></> },
+            { value: 'upload', label: <><UploadIcon className="w-4 h-4" /><span>{t('character.modeUpload')}</span></> },
           ]}
           value={createMode}
-          onChange={(val) => setCreateMode(val as 'reference' | 'description')}
+          onChange={(val) => setCreateMode(val as 'reference' | 'description' | 'upload')}
         />
       </div>
 
-      {mode === 'project' && availableCharacters.length > 0 && (
+      {mode === 'project' && availableCharacters.length > 0 && createMode !== 'upload' && (
         <div className="flex items-start gap-3 p-3 glass-surface-soft rounded-lg border border-[var(--glass-stroke-base)]">
           <input
             type="checkbox"
@@ -169,7 +188,7 @@ export default function CharacterCreationForm({
         </div>
       )}
 
-      {mode === 'asset-hub' && !isSubAppearance && (
+      {mode === 'asset-hub' && !isSubAppearance && createMode !== 'upload' && (
         <div className="space-y-2">
           <label className="glass-field-label block">
             {t('artStyle.title')}
@@ -285,6 +304,38 @@ export default function CharacterCreationForm({
             />
           </div>
         </>
+      )}
+
+      {createMode === 'upload' && (
+        <div className="glass-surface-soft rounded-xl p-4 space-y-3 border border-[var(--glass-stroke-base)]">
+          <div className="flex items-center gap-2 text-sm font-medium text-[var(--glass-tone-info-fg)]">
+            <UploadIcon className="w-4 h-4" />
+            <span>{t('character.uploadAsAppearance')}</span>
+          </div>
+          <p className="text-xs text-[var(--glass-text-secondary)]">
+            {t('character.uploadAppearanceTip')}
+          </p>
+          <CharacterCreationPreview
+            referenceImagesBase64={uploadPreviewUrls}
+            fileInputRef={uploadFileInputRef}
+            onDrop={handleUploadDrop}
+            onFileSelect={handleUploadFileSelect}
+            onClearReference={handleClearUpload}
+            variant="upload"
+          />
+          <div className="space-y-2">
+            <label className="glass-field-label block">
+              {t('character.description')}
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder={t('character.descPlaceholder')}
+              className="glass-textarea-base w-full px-3 py-2 text-sm resize-none"
+            />
+          </div>
+        </div>
       )}
     </div>
   )

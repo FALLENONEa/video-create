@@ -14,6 +14,8 @@ vi.mock('@/lib/query/hooks', () => ({
   useGenerateLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useCreateProjectLocation: vi.fn(() => ({ mutateAsync: vi.fn() })),
   useGenerateProjectLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useUploadLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useUploadProjectLocationImage: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }))
 
 const messages = {
@@ -24,6 +26,10 @@ const messages = {
       namePlaceholder: '请输入场景名称',
       description: '场景描述',
       descPlaceholder: '请输入场景描述...',
+      modeDescription: '描述',
+      modeUpload: '上传图片',
+      uploadTitle: '上传场景图',
+      uploadTip: '直接上传图片作为场景图，不经过 AI 生成',
     },
     artStyle: { title: '画面风格' },
     aiDesign: {

@@ -5,6 +5,12 @@
         "namePlaceholder": "请输入角色名称",
         "modeReference": "参考图模式",
         "modeDescription": "描述模式",
+        "modeUpload": "上传图片",
+        "uploadAsAppearance": "上传形象图",
+        "uploadAppearanceTip": "直接上传图片作为角色形象，不经过 AI 生成",
+        "uploadDropOrClick": "点击上传或拖拽图片",
+        "uploadMaxImages": "最多上传 5 张图片",
+        "uploadSelectedCount": "已选择 {count}/5 张图片",
         "isSubAppearance": "这是一个子形象",
         "isSubAppearanceHint": "为已有角色添加新的形象状态",
         "uploadReference": "上传参考图",
@@ -49,7 +55,11 @@
         "name": "场景名称",
         "namePlaceholder": "请输入场景名称",
         "description": "场景描述",
-        "descPlaceholder": "请输入场景描述..."
+        "descPlaceholder": "请输入场景描述...",
+        "modeDescription": "描述",
+        "modeUpload": "上传图片",
+        "uploadTitle": "上传场景图",
+        "uploadTip": "直接上传图片作为场景图，不经过 AI 生成"
     },
     "prop": {
         "title": "新建道具",
@@ -58,7 +68,11 @@
         "summary": "简要说明",
         "summaryPlaceholder": "一句话说明这是什么道具，不写剧情用途...",
         "description": "图片描述",
-        "descriptionPlaceholder": "只写道具本体的材质、颜色、结构和装饰细节..."
+        "descriptionPlaceholder": "只写道具本体的材质、颜色、结构和装饰细节...",
+        "modeDescription": "描述",
+        "modeUpload": "上传图片",
+        "uploadTitle": "上传道具图",
+        "uploadTip": "直接上传图片作为道具图，不经过 AI 生成"
     },
     "artStyle": {
         "title": "画面风格"

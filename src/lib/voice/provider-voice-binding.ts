@@ -1,6 +1,6 @@
 type VoiceSource = 'character' | 'speaker'
 
-export type SupportedAudioProviderKey = 'fal' | 'bailian'
+export type SupportedAudioProviderKey = 'fal' | 'bailian' | 'zhipu'
 
 export interface CharacterVoiceFields {
   customVoiceUrl?: string | null
@@ -43,7 +43,16 @@ export type BailianVoiceGenerationBinding = {
   voiceId: string
 }
 
-export type VoiceGenerationBinding = FalVoiceGenerationBinding | BailianVoiceGenerationBinding
+export type ZhipuVoiceGenerationBinding = {
+  provider: 'zhipu'
+  source: VoiceSource
+  referenceAudioUrl: string
+}
+
+export type VoiceGenerationBinding =
+  | FalVoiceGenerationBinding
+  | BailianVoiceGenerationBinding
+  | ZhipuVoiceGenerationBinding
 
 export type SpeakerVoicePatch =
   | {
@@ -151,7 +160,7 @@ export function parseSpeakerVoiceMap(raw: string | null | undefined): SpeakerVoi
 }
 
 function normalizeProviderKey(providerKey: string): SupportedAudioProviderKey | null {
-  if (providerKey === 'fal' || providerKey === 'bailian') {
+  if (providerKey === 'fal' || providerKey === 'bailian' || providerKey === 'zhipu') {
     return providerKey
   }
   return null
@@ -186,11 +195,23 @@ export function resolveVoiceBindingForProvider(params: {
   const characterAudioUrl = readTrimmedString(params.character?.customVoiceUrl)
   const characterVoiceId = readTrimmedString(params.character?.voiceId)
 
-  if (providerKey === 'fal') {
-    const fromCharacter = toFalBinding('character', characterAudioUrl)
-    if (fromCharacter) return fromCharacter
-    if (params.speakerVoice?.provider !== 'fal') return null
-    return toFalBinding('speaker', readTrimmedString(params.speakerVoice.audioUrl))
+  if (providerKey === 'fal' || providerKey === 'zhipu') {
+    // 参考音频克隆类引擎（fal / 智谱 glm-tts-clone）：参考音频引擎无关，
+    // 角色自定义音频或发言人上传的参考音频均可复用，binding.provider 跟随当前音频模型。
+    const buildBinding = (
+      source: VoiceSource,
+      url: string | null,
+    ): FalVoiceGenerationBinding | ZhipuVoiceGenerationBinding | null => {
+      if (!url) return null
+      if (providerKey === 'fal') return toFalBinding(source, url)
+      return { provider: 'zhipu', source, referenceAudioUrl: url }
+    }
+    return (
+      buildBinding('character', characterAudioUrl) ??
+      (params.speakerVoice?.provider === 'fal'
+        ? buildBinding('speaker', readTrimmedString(params.speakerVoice.audioUrl))
+        : null)
+    )
   }
 
   const fromCharacter = toBailianBinding('character', characterVoiceId)

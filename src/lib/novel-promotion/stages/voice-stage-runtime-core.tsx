@@ -4,13 +4,14 @@ import { useCallback, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useProjectAssets } from '@/lib/query/hooks/useProjectAssets'
-import { useEpisodeData } from '@/lib/query/hooks/useProjectData'
+import { useEpisodeData, useProjectData } from '@/lib/query/hooks/useProjectData'
 import {
   useAnalyzeProjectVoice,
   useCreateProjectVoiceLine,
   useDeleteProjectVoiceLine,
   useDownloadProjectVoices,
   useGenerateProjectVoice,
+  useGenerateEmotionPrompt,
   useUpdateProjectVoiceLine,
   useUpdateSpeakerVoice,
 } from '@/lib/query/hooks'
@@ -58,11 +59,16 @@ export function useVoiceStageRuntime({
   }
   const { data: assets } = useProjectAssets(projectId)
   const { data: episodeData } = useEpisodeData(projectId, episodeId)
+  const { data: project } = useProjectData(projectId)
+  // 智谱 glm-tts-clone 不支持情绪强度入参（情绪由模型自动推断），选中智谱音频模型时置灰强度滑块
+  const audioProvider = (project?.novelPromotionData?.audioModel ?? '').split('::')[0].toLowerCase()
+  const emotionStrengthSupported = audioProvider !== 'zhipu'
   const analyzeVoiceMutation = useAnalyzeProjectVoice(projectId)
   const generateVoiceMutation = useGenerateProjectVoice(projectId)
   const createVoiceLineMutation = useCreateProjectVoiceLine(projectId)
   const updateVoiceLineMutation = useUpdateProjectVoiceLine(projectId)
   const deleteVoiceLineMutation = useDeleteProjectVoiceLine(projectId)
+  const generateEmotionPromptMutation = useGenerateEmotionPrompt(projectId)
   const downloadVoicesMutation = useDownloadProjectVoices(projectId)
   const updateSpeakerVoiceMutation = useUpdateSpeakerVoice(projectId)
   const characters: Character[] = useMemo(() => (assets?.characters ?? []) as Character[], [assets?.characters])
@@ -193,6 +199,7 @@ export function useVoiceStageRuntime({
     handleDeleteLine,
     handleDeleteAudio,
     handleSaveEmotionSettings,
+    handleGenerateEmotionPrompt,
   } = useVoiceLineCrudActions({
     episodeId,
     t: (key, values) => t(key as never, values as never),
@@ -210,6 +217,7 @@ export function useVoiceStageRuntime({
     createVoiceLineMutation,
     updateVoiceLineMutation,
     deleteVoiceLineMutation,
+    generateEmotionPromptMutation,
   })
 
   // ─── 内联音色绑定弹窗状态 ───────────────────────────
@@ -304,6 +312,7 @@ export function useVoiceStageRuntime({
           voiceStatusStateByLineId={voiceStatusStateByLineId}
           playingLineId={playingLineId}
           analyzing={analyzing}
+          emotionStrengthSupported={emotionStrengthSupported}
           getSpeakerVoiceUrl={getSpeakerVoiceUrl}
           onTogglePlayAudio={handleTogglePlayAudio}
           onDownloadSingle={handleDownloadSingle}
@@ -313,6 +322,7 @@ export function useVoiceStageRuntime({
           onDeleteLine={handleDeleteLine}
           onDeleteAudio={handleDeleteAudio}
           onSaveEmotionSettings={handleSaveEmotionSettings}
+          onGenerateEmotionPrompt={handleGenerateEmotionPrompt}
           onAnalyze={handleAnalyze}
         />
       </VoiceControlPanel>

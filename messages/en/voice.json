@@ -5,7 +5,10 @@
     "emotionPrompt": "Emotion Prompt",
     "emotionPromptTip": "(Leave empty for auto-reference)",
     "emotionPlaceholder": "e.g. laugh, English only...",
+    "emotionPromptGenerate": "AI Generate",
+    "emotionPromptGenerating": "Generating...",
     "emotionStrength": "Emotion Strength",
+    "emotionStrengthUnsupported": "The current audio model (Zhipu) does not support emotion strength; emotion is inferred automatically from the prompt and line text",
     "flat": "Flat",
     "intense": "Intense",
     "generating": "Generating...",
@@ -140,6 +143,7 @@
         "uploadFailed": "Upload Failed",
         "voiceDesignFailed": "Voice Design Save Failed",
         "emotionSaveFailed": "Emotion Settings Save Failed",
+        "emotionPromptGenerateFailed": "Failed to generate emotion prompt",
         "voiceGenerateFailed": "Voice Generation Failed"
     },
     "alerts": {

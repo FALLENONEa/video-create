@@ -18,7 +18,9 @@ interface VoiceLineListProps {
   onDeleteLine: (lineId: string) => Promise<void>
   onDeleteAudio: (lineId: string) => Promise<void>
   onSaveEmotionSettings: (lineId: string, emotionPrompt: string | null, emotionStrength: number) => Promise<void>
+  onGenerateEmotionPrompt: (lineId: string) => Promise<string | null>
   onAnalyze: () => Promise<void>
+  emotionStrengthSupported: boolean
 }
 
 export default function VoiceLineList({
@@ -37,6 +39,8 @@ export default function VoiceLineList({
   onDeleteAudio,
   onSaveEmotionSettings,
   onAnalyze,
+  emotionStrengthSupported,
+  onGenerateEmotionPrompt,
 }: VoiceLineListProps) {
   if (voiceLines.length === 0) {
     return <EmptyVoiceState onAnalyze={onAnalyze} analyzing={analyzing} />
@@ -60,6 +64,8 @@ export default function VoiceLineList({
           onDelete={onDeleteLine}
           onDeleteAudio={onDeleteAudio}
           onSaveEmotionSettings={onSaveEmotionSettings}
+          emotionStrengthSupported={emotionStrengthSupported}
+          onGenerateEmotionPrompt={onGenerateEmotionPrompt}
         />
       ))}
     </div>

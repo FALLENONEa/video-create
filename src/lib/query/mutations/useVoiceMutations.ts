@@ -148,6 +148,25 @@ export function useGenerateProjectVoice(projectId: string) {
 }
 
 /**
+ * AI 生成情绪提示词（结合台词与发言人，同步返回）
+ */
+
+export function useGenerateEmotionPrompt(projectId: string) {
+    return useMutation({
+        mutationFn: async ({ lineId }: { lineId: string }) =>
+            await requestJsonWithError<{ success?: boolean; emotionPrompt: string }>(
+                `/api/novel-promotion/${projectId}/voice-emotion-prompt`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lineId }),
+                },
+                'generate emotion prompt failed',
+            ),
+    })
+}
+
+/**
  * 创建台词
  */
 

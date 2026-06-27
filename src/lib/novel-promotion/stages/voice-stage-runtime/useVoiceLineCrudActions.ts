@@ -26,6 +26,7 @@ interface UseVoiceLineCrudActionsParams {
   createVoiceLineMutation: MutationLike<{ episodeId: string; content: string; speaker: string; matchedPanelId: string | null }, { voiceLine: VoiceLine }>
   updateVoiceLineMutation: MutationLike<{ lineId: string; content?: string; speaker?: string; matchedPanelId?: string | null; audioUrl?: string | null; emotionPrompt?: string | null; emotionStrength?: number }, { voiceLine: VoiceLine }>
   deleteVoiceLineMutation: MutationLike<{ lineId: string }>
+  generateEmotionPromptMutation: MutationLike<{ lineId: string }, { emotionPrompt: string }>
 }
 
 export function useVoiceLineCrudActions({
@@ -45,6 +46,7 @@ export function useVoiceLineCrudActions({
   createVoiceLineMutation,
   updateVoiceLineMutation,
   deleteVoiceLineMutation,
+  generateEmotionPromptMutation,
 }: UseVoiceLineCrudActionsParams) {
   const handleSaveEdit = useCallback(async () => {
     const content = editingContent.trim()
@@ -188,10 +190,27 @@ export function useVoiceLineCrudActions({
     }
   }, [setVoiceLines, t, updateVoiceLineMutation])
 
+  // AI 生成情绪提示词：仅返回文本供组件回填到输入框，不直接持久化
+  // （与手填语义一致，用户可再编辑，点「生成语音」时才随台词一起保存）
+  const handleGenerateEmotionPrompt = useCallback(async (lineId: string): Promise<string | null> => {
+    const line = voiceLines.find((item) => item.id === lineId)
+    if (!line) return null
+    try {
+      const data = await generateEmotionPromptMutation.mutateAsync({ lineId })
+      return (data.emotionPrompt || '').trim() || null
+    } catch (error: unknown) {
+      if (shouldShowError(error)) {
+        alert(`${t('errors.emotionPromptGenerateFailed')}: ${getErrorMessage(error)}`)
+      }
+      return null
+    }
+  }, [generateEmotionPromptMutation, t, voiceLines])
+
   return {
     handleSaveEdit,
     handleDeleteLine,
     handleDeleteAudio,
     handleSaveEmotionSettings,
+    handleGenerateEmotionPrompt,
   }
 }

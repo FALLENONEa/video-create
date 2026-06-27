@@ -6,6 +6,9 @@
     "emotionPromptTip": "(不填则使用台词自参考)",
     "emotionPlaceholder": "如：laugh，仅支持英文...",
     "emotionStrength": "情绪强度",
+    "emotionStrengthUnsupported": "当前音频模型（智谱）不支持情绪强度调节，情绪由模型从提示词与台词中自动推断",
+    "emotionPromptGenerate": "AI 生成",
+    "emotionPromptGenerating": "生成中...",
     "flat": "平淡",
     "intense": "强烈",
     "generating": "生成中...",
@@ -140,6 +143,7 @@
         "uploadFailed": "上传音频失败",
         "voiceDesignFailed": "保存声音设计失败",
         "emotionSaveFailed": "保存情绪设置失败",
+        "emotionPromptGenerateFailed": "AI 生成情绪提示词失败",
         "voiceGenerateFailed": "生成音频失败"
     },
     "alerts": {

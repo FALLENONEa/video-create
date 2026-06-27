@@ -136,6 +136,7 @@ export {
     useFetchProjectVoiceStageData,
     useAnalyzeProjectVoice,
     useGenerateProjectVoice,
+    useGenerateEmotionPrompt,
     useCreateProjectVoiceLine,
     useUpdateProjectVoiceLine,
     useDeleteProjectVoiceLine,

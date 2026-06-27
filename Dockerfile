@@ -23,7 +23,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install tini for proper signal handling
-RUN apk add --no-cache tini
+# ffmpeg + 中文字体：video-editor 渲染（libass 烧字幕需要 fontconfig + Noto CJK）
+RUN apk add --no-cache tini ffmpeg font-noto-cjk fontconfig && fc-cache -f
 
 # node_modules（含 devDeps，因为 npm run start 需要 concurrently + tsx）
 COPY --from=builder /app/node_modules ./node_modules

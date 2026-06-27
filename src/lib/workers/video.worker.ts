@@ -19,6 +19,7 @@ import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/model-capabilities/l
 import { parseModelKeyStrict } from '@/lib/model-config-contract'
 import { getProviderConfig } from '@/lib/api-config'
 import { logInfo as _ulogInfo } from '@/lib/logging/core'
+import { handleVideoRenderTask } from './handlers/video-render'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -303,6 +304,8 @@ async function processVideoTask(job: Job<TaskJobData>) {
       return await handleVideoPanelTask(job)
     case TASK_TYPE.LIP_SYNC:
       return await handleLipSyncTask(job)
+    case TASK_TYPE.VIDEO_RENDER:
+      return await handleVideoRenderTask(job)
     default:
       throw new Error(`Unsupported video task type: ${job.data.type}`)
   }

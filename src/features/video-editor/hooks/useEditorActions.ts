@@ -86,7 +86,7 @@ export function useEditorActions({ projectId, episodeId }: UseEditorActionsProps
         const response = await apiFetch(`/api/novel-promotion/${projectId}/editor`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ projectData: project })
+            body: JSON.stringify({ episodeId, projectData: project })
         })
 
         if (!response.ok) {
@@ -94,7 +94,7 @@ export function useEditorActions({ projectId, episodeId }: UseEditorActionsProps
         }
 
         return response.json()
-    }, [projectId])
+    }, [projectId, episodeId])
 
     /**
      * 加载项目
@@ -114,15 +114,11 @@ export function useEditorActions({ projectId, episodeId }: UseEditorActionsProps
     /**
      * 发起渲染导出
      */
-    const startRender = useCallback(async (editorProjectId: string) => {
+    const startRender = useCallback(async () => {
         const response = await apiFetch(`/api/novel-promotion/${projectId}/editor/render`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                editorProjectId,
-                format: 'mp4',
-                quality: 'high'
-            })
+            body: JSON.stringify({ episodeId })
         })
 
         if (!response.ok) {
@@ -130,14 +126,14 @@ export function useEditorActions({ projectId, episodeId }: UseEditorActionsProps
         }
 
         return response.json()
-    }, [projectId])
+    }, [projectId, episodeId])
 
     /**
      * 获取渲染状态
      */
-    const getRenderStatus = useCallback(async (editorProjectId: string) => {
+    const getRenderStatus = useCallback(async () => {
         const response = await apiFetch(
-            `/api/novel-promotion/${projectId}/editor/render?id=${editorProjectId}`
+            `/api/novel-promotion/${projectId}/editor/render?episodeId=${episodeId}`
         )
 
         if (!response.ok) {
@@ -145,7 +141,7 @@ export function useEditorActions({ projectId, episodeId }: UseEditorActionsProps
         }
 
         return response.json()
-    }, [projectId])
+    }, [projectId, episodeId])
 
     return {
         saveProject,

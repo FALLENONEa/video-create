@@ -126,12 +126,14 @@ export const RemotionPreview: React.FC<RemotionPreviewProps> = ({
 
     return (
         <div style={{
+            position: 'relative',
             width: '100%',
             aspectRatio: `${project.config.width} / ${project.config.height}`,
             maxHeight: '100%',
             background: 'var(--glass-overlay-strong)',
             borderRadius: '8px',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            cursor: 'pointer'
         }}>
             <Player
                 ref={playerRef}
@@ -149,10 +151,33 @@ export const RemotionPreview: React.FC<RemotionPreviewProps> = ({
                     width: '100%',
                     height: '100%'
                 }}
-                controls={false}  // 使用自定义控制
+                controls={false}
                 loop={false}
-                clickToPlay={false}  // 禁用点击播放，由外部控制
+                // 点画面播放：clickToPlay 在用户手势同步栈内触发 play，可绕过浏览器 autoplay 限制
+                clickToPlay
             />
+            {!playing && (
+                <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    pointerEvents: 'none'
+                }}>
+                    <div style={{
+                        width: '72px',
+                        height: '72px',
+                        borderRadius: '50%',
+                        background: 'rgba(0, 0, 0, 0.55)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <AppIcon name="play" className="w-8 h-8 text-white" />
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

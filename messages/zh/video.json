@@ -142,13 +142,17 @@
       "saveSuccess": "保存成功",
       "saveFailed": "保存失败",
       "exportStarted": "导出任务已开始，请稍候...",
-      "exportFailed": "导出失败"
+      "exportFailed": "导出失败",
+      "renderCompleted": "渲染完成，可下载或预览成片",
+      "renderFailed": "渲染失败，请重试"
     },
     "toolbar": {
       "back": "← 返回",
       "saveDirty": "保存 *",
       "saved": "已保存",
-      "export": "导出视频"
+      "export": "导出视频",
+      "rendering": "渲染中…",
+      "download": "下载成片"
     },
     "left": {
       "title": "素材库",

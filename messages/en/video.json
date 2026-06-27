@@ -142,13 +142,17 @@
       "saveSuccess": "Saved successfully",
       "saveFailed": "Save failed",
       "exportStarted": "Export has started. Please wait...",
-      "exportFailed": "Export failed"
+      "exportFailed": "Export failed",
+      "renderCompleted": "Render completed. You can preview or download the video.",
+      "renderFailed": "Render failed. Please retry."
     },
     "toolbar": {
       "back": "← Back",
       "saveDirty": "Save *",
       "saved": "Saved",
-      "export": "Export Video"
+      "export": "Export Video",
+      "rendering": "Rendering…",
+      "download": "Download"
     },
     "left": {
       "title": "Media Library",

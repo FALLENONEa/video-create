@@ -2,7 +2,7 @@
 import { logError as _ulogError } from '@/lib/logging/core'
 import { useTranslations } from 'next-intl'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { AppIcon } from '@/components/ui/icons'
 import { useEditorState } from '../hooks/useEditorState'
 import { useEditorActions } from '../hooks/useEditorActions'
@@ -56,7 +56,29 @@ export function VideoEditorStage({
         markSaved
     } = useEditorState({ episodeId, initialProject })
 
-    const { saveProject, startRender } = useEditorActions({ projectId, episodeId })
+    const { saveProject, startRender, getRenderStatus } = useEditorActions({ projectId, episodeId })
+
+    const [renderStatus, setRenderStatus] = useState<string | null>(null)
+    const [outputUrl, setOutputUrl] = useState<string | null>(null)
+
+    // 初始拉取 + pending/rendering 时轮询渲染状态
+    useEffect(() => {
+        let cancelled = false
+        const poll = async () => {
+            try {
+                const data = await getRenderStatus()
+                if (cancelled) return
+                setRenderStatus(data.renderStatus ?? null)
+                setOutputUrl(data.outputUrl ?? null)
+            } catch {
+                // 静默：首次无工程时 404 属正常
+            }
+        }
+        void poll()
+        if (renderStatus !== 'pending' && renderStatus !== 'rendering') return
+        const timer = setInterval(poll, 3000)
+        return () => { cancelled = true; clearInterval(timer) }
+    }, [getRenderStatus, renderStatus])
 
     const totalDuration = calculateTimelineDuration(project.timeline)
     const totalTime = framesToTime(totalDuration, project.config.fps)
@@ -75,7 +97,11 @@ export function VideoEditorStage({
 
     const handleExport = async () => {
         try {
-            await startRender(project.id)
+            await saveProject(project)
+            markSaved()
+            await startRender()
+            setRenderStatus('pending')
+            setOutputUrl(null)
             alert(t('editor.alert.exportStarted'))
         } catch (error) {
             _ulogError('Export failed:', error)
@@ -122,12 +148,24 @@ export function VideoEditorStage({
                     {isDirty ? t('editor.toolbar.saveDirty') : t('editor.toolbar.saved')}
                 </button>
 
-                <button
-                    onClick={handleExport}
-                    className="glass-btn-base glass-btn-tone-success px-4 py-2"
-                >
-                    {t('editor.toolbar.export')}
-                </button>
+                {renderStatus === 'completed' && outputUrl ? (
+                    <button
+                        onClick={() => window.open(outputUrl, '_blank')}
+                        className="glass-btn-base glass-btn-tone-success px-4 py-2"
+                    >
+                        {t('editor.toolbar.download')}
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleExport}
+                        disabled={renderStatus === 'pending' || renderStatus === 'rendering'}
+                        className="glass-btn-base glass-btn-tone-success px-4 py-2"
+                    >
+                        {(renderStatus === 'pending' || renderStatus === 'rendering')
+                            ? t('editor.toolbar.rendering')
+                            : t('editor.toolbar.export')}
+                    </button>
+                )}
             </div>
 
             {/* Main Content */}

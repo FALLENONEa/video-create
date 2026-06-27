@@ -8,7 +8,7 @@
     "emotionPromptGenerate": "AI Generate",
     "emotionPromptGenerating": "Generating...",
     "emotionStrength": "Emotion Strength",
-    "emotionStrengthUnsupported": "The current audio model (Zhipu) does not support emotion strength; emotion is inferred automatically from the prompt and line text",
+    "emotionUnsupported": "The current audio model (Zhipu) does not support emotion control; emotion prompts would be read aloud verbatim. For emotional performance, switch to the fal IndexTTS2 audio model",
     "flat": "Flat",
     "intense": "Intense",
     "generating": "Generating...",

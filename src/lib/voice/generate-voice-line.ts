@@ -124,42 +124,18 @@ async function generateVoiceWithIndexTTS2(params: {
 }
 
 /**
- * 智谱 glm-tts-clone 不开放显式情绪/强度入参（官方 VoiceCloneRequest 仅 model/voice_name/
- * file_id/input/text/request_id 六个字段），情绪完全由模型从 input 文本语义自动推断。
- * 因此这里把情绪提示词 + 强度档位融合进 input 文本本身，作为软控制让模型自行体现。
- * 强度 0-1 映射为「平淡 / 适度 / 强烈 / 非常强烈」四档语气副词，避免给模型传无意义的数值。
+ * 智谱 glm-tts-clone 不支持任何形式的情绪控制：
+ * - 官方 VoiceCloneRequest 仅 model/voice_name/file_id/input/text/request_id 六个字段，无情绪入参；
+ * - 实测把情绪提示词拼进 input 文本，模型会原样朗读出来（例如「（平淡地，自嘲）」被念出），而非推断语气。
+ * 因此智谱分支只送原始台词，emotionPrompt/emotionStrength 一律忽略（情绪控制请改用 fal IndexTTS2）。
  */
-function composeZhipuEmotionInput(
-  text: string,
-  emotionPrompt?: string | null,
-  emotionStrength?: number | null,
-): string {
-  const prompt = typeof emotionPrompt === 'string' ? emotionPrompt.trim() : ''
-  if (!prompt) return text
-
-  const strength = typeof emotionStrength === 'number' ? emotionStrength : 0.4
-  let degree: string
-  if (strength <= 0.25) degree = '平淡地'
-  else if (strength <= 0.5) degree = '适度地'
-  else if (strength <= 0.75) degree = '强烈地'
-  else degree = '非常强烈地'
-
-  // 形如「（非常强烈地，愤怒）你给我滚！」——括号提示供模型推断语气，不发音
-  return `（${degree}，${prompt}）${text}`
-}
-
 async function generateVoiceWithZhipuClone(params: {
   referenceAudioUrl: string
   text: string
   apiKey: string
-  emotionPrompt?: string | null
-  emotionStrength?: number | null
 }): Promise<{ audioData: Buffer; audioDuration: number }> {
-  const input = composeZhipuEmotionInput(params.text, params.emotionPrompt, params.emotionStrength)
-  _ulogInfo(
-    `Zhipu Voice Clone: 克隆合成, input 长度=${input.length}` +
-      (params.emotionPrompt?.trim() ? `, 情绪提示已融合(strength=${params.emotionStrength ?? 0.4})` : ''),
-  )
+  const input = params.text
+  _ulogInfo(`Zhipu Voice Clone: 克隆合成, input 长度=${input.length}`)
 
   // 1. 拉取参考音频
   const refBuffer = await downloadAudioData(params.referenceAudioUrl)
@@ -342,8 +318,6 @@ export async function generateVoiceLine(params: {
       referenceAudioUrl: fullAudioUrl,
       text,
       apiKey,
-      emotionPrompt: line.emotionPrompt,
-      emotionStrength: line.emotionStrength ?? 0.4,
     })
   } else {
     throw new Error(`AUDIO_PROVIDER_UNSUPPORTED: ${audioSelection.provider}`)

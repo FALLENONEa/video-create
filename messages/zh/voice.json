@@ -6,7 +6,7 @@
     "emotionPromptTip": "(不填则使用台词自参考)",
     "emotionPlaceholder": "如：laugh，仅支持英文...",
     "emotionStrength": "情绪强度",
-    "emotionStrengthUnsupported": "当前音频模型（智谱）不支持情绪强度调节，情绪由模型从提示词与台词中自动推断",
+    "emotionUnsupported": "当前音频模型（智谱）不支持情绪控制，情绪提示词会被原样念出。如需情绪表演，请改用 fal IndexTTS2 音频模型",
     "emotionPromptGenerate": "AI 生成",
     "emotionPromptGenerating": "生成中...",
     "flat": "平淡",

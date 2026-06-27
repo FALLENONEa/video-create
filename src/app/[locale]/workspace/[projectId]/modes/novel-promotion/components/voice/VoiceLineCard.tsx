@@ -36,7 +36,7 @@ interface VoiceLineCardProps {
     onDeleteAudio: (lineId: string) => void
     onSaveEmotionSettings: (lineId: string, emotionPrompt: string | null, emotionStrength: number) => void
     onGenerateEmotionPrompt: (lineId: string) => Promise<string | null>
-    emotionStrengthSupported: boolean
+    emotionSupported: boolean
 }
 
 export default function VoiceLineCard({
@@ -53,7 +53,7 @@ export default function VoiceLineCard({
     onDelete,
     onDeleteAudio,
     onSaveEmotionSettings,
-    emotionStrengthSupported,
+    emotionSupported,
     onGenerateEmotionPrompt
 }: VoiceLineCardProps) {
     const t = useTranslations('voice')
@@ -215,7 +215,7 @@ export default function VoiceLineCard({
                                 onSave={onSaveEmotionSettings}
                                 onGenerate={onGenerate}
                                 isVoiceGenerationRunning={isVoiceTaskRunning}
-                                emotionStrengthSupported={emotionStrengthSupported}
+                                emotionSupported={emotionSupported}
                                 onGenerateEmotionPrompt={onGenerateEmotionPrompt}
                             />
                         )}

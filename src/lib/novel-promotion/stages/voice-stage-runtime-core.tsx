@@ -60,9 +60,9 @@ export function useVoiceStageRuntime({
   const { data: assets } = useProjectAssets(projectId)
   const { data: episodeData } = useEpisodeData(projectId, episodeId)
   const { data: project } = useProjectData(projectId)
-  // 智谱 glm-tts-clone 不支持情绪强度入参（情绪由模型自动推断），选中智谱音频模型时置灰强度滑块
+  // 智谱 glm-tts-clone 不支持任何情绪控制（提示词会被原样朗读），选中智谱音频模型时整个情绪区置灰
   const audioProvider = (project?.novelPromotionData?.audioModel ?? '').split('::')[0].toLowerCase()
-  const emotionStrengthSupported = audioProvider !== 'zhipu'
+  const emotionSupported = audioProvider !== 'zhipu'
   const analyzeVoiceMutation = useAnalyzeProjectVoice(projectId)
   const generateVoiceMutation = useGenerateProjectVoice(projectId)
   const createVoiceLineMutation = useCreateProjectVoiceLine(projectId)
@@ -312,7 +312,7 @@ export function useVoiceStageRuntime({
           voiceStatusStateByLineId={voiceStatusStateByLineId}
           playingLineId={playingLineId}
           analyzing={analyzing}
-          emotionStrengthSupported={emotionStrengthSupported}
+          emotionSupported={emotionSupported}
           getSpeakerVoiceUrl={getSpeakerVoiceUrl}
           onTogglePlayAudio={handleTogglePlayAudio}
           onDownloadSingle={handleDownloadSingle}

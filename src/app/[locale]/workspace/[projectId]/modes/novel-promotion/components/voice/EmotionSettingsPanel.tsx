@@ -12,7 +12,7 @@ interface EmotionSettingsPanelProps {
     onGenerate: (lineId: string) => void
     onGenerateEmotionPrompt: (lineId: string) => Promise<string | null>
     isVoiceGenerationRunning: boolean
-    emotionStrengthSupported: boolean
+    emotionSupported: boolean
 }
 
 export default function EmotionSettingsPanel({
@@ -23,7 +23,7 @@ export default function EmotionSettingsPanel({
     onGenerate,
     onGenerateEmotionPrompt,
     isVoiceGenerationRunning,
-    emotionStrengthSupported
+    emotionSupported
 }: EmotionSettingsPanelProps) {
     const t = useTranslations('voice')
     const voiceGenerationState = isVoiceGenerationRunning
@@ -66,8 +66,15 @@ export default function EmotionSettingsPanel({
 
     return (
         <div className="px-4 py-3 bg-[var(--glass-tone-info-bg)] space-y-3">
+            {/* 智谱 glm-tts-clone 不支持任何情绪控制（提示词会被原样朗读），整区置灰提示 */}
+            {!emotionSupported && (
+                <p className="text-[10px] leading-snug text-[var(--glass-text-tertiary)] bg-[var(--glass-bg-surface)] rounded-lg px-2.5 py-2">
+                    {t("emotionUnsupported")}
+                </p>
+            )}
+
             {/* 情绪提示词 */}
-            <div>
+            <div className={emotionSupported ? '' : 'opacity-50'}>
                 <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs text-[var(--glass-tone-info-fg)] font-medium">
                         {t("emotionPrompt")} <span className="text-[var(--glass-text-tertiary)] font-normal">{t("emotionPromptTip")}</span>
@@ -75,7 +82,7 @@ export default function EmotionSettingsPanel({
                     <button
                         type="button"
                         onClick={handleAiGeneratePrompt}
-                        disabled={isGeneratingPrompt}
+                        disabled={isGeneratingPrompt || !emotionSupported}
                         className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] leading-none text-[var(--glass-tone-info-fg)] border border-[var(--glass-stroke-focus)]/60 rounded-lg hover:bg-[var(--glass-bg-surface)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isGeneratingPrompt ? t("emotionPromptGenerating") : t("emotionPromptGenerate")}
@@ -84,14 +91,15 @@ export default function EmotionSettingsPanel({
                 <input
                     type="text"
                     value={prompt}
+                    disabled={!emotionSupported}
                     onChange={(e) => handlePromptChange(e.target.value)}
                     placeholder={t("emotionPlaceholder")}
-                    className="w-full px-3 py-2 text-sm border border-[var(--glass-stroke-focus)]/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--glass-tone-info-fg)]/50 focus:border-[var(--glass-stroke-focus)] bg-[var(--glass-bg-surface)]"
+                    className="w-full px-3 py-2 text-sm border border-[var(--glass-stroke-focus)]/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--glass-tone-info-fg)]/50 focus:border-[var(--glass-stroke-focus)] bg-[var(--glass-bg-surface)] disabled:cursor-not-allowed"
                 />
             </div>
 
-            {/* 情绪强度滑块（智谱模型不支持情绪强度入参时置灰） */}
-            <div className={emotionStrengthSupported ? '' : 'opacity-50'}>
+            {/* 情绪强度滑块 */}
+            <div className={emotionSupported ? '' : 'opacity-50'}>
                 <label className="block text-xs text-[var(--glass-tone-info-fg)] mb-1.5 font-medium">
                     {t("emotionStrength")}: <span className="font-bold">{strength.toFixed(1)}</span>
                 </label>
@@ -101,7 +109,7 @@ export default function EmotionSettingsPanel({
                     max="1"
                     step="0.1"
                     value={strength}
-                    disabled={!emotionStrengthSupported}
+                    disabled={!emotionSupported}
                     onChange={(e) => handleStrengthChange(parseFloat(e.target.value))}
                     className="w-full h-2 bg-[var(--glass-tone-info-bg)] rounded-lg appearance-none cursor-pointer accent-[var(--glass-accent-from)] disabled:cursor-not-allowed"
                 />
@@ -109,11 +117,6 @@ export default function EmotionSettingsPanel({
                     <span>{t("flat")}</span>
                     <span>{t("intense")}</span>
                 </div>
-                {!emotionStrengthSupported && (
-                    <p className="mt-1.5 text-[10px] leading-snug text-[var(--glass-text-tertiary)]">
-                        {t("emotionStrengthUnsupported")}
-                    </p>
-                )}
             </div>
 
             {/* 生成语音按钮 */}

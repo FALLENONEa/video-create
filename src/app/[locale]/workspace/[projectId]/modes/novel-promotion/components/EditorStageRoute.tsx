@@ -17,6 +17,7 @@ interface EditorPanelDraft {
   panelIndex?: number
   storyboardId: string
   videoUrl: string
+  usesLipSyncVideo: boolean
   description?: string
   duration?: number
 }
@@ -26,7 +27,7 @@ function normalizeDurationSec(value: unknown): number | undefined {
 }
 
 function panelKey(panel: Pick<EditorPanelDraft, 'id' | 'storyboardId' | 'panelIndex'>): string {
-  return panel.id || `${panel.storyboardId}:${panel.panelIndex ?? 'unknown'}`
+  return panel.id || `${panel.storyboardId}-${panel.panelIndex ?? 'unknown'}`
 }
 
 /**
@@ -87,7 +88,7 @@ function findSavedClipDuration(saved: VideoEditorProject | null, panel: EditorPa
   const key = panelKey(panel)
   const clip = saved.timeline.find((item) => {
     const metadata = item.metadata
-    const metadataKey = metadata?.panelId || `${metadata?.storyboardId ?? ''}:${panel.panelIndex ?? 'unknown'}`
+    const metadataKey = metadata?.panelId || `${metadata?.storyboardId ?? ''}-${panel.panelIndex ?? 'unknown'}`
     return metadataKey === key
   })
   return normalizeDurationSec(clip ? clip.durationInFrames / saved.config.fps : undefined)
@@ -96,7 +97,7 @@ function findSavedClipDuration(saved: VideoEditorProject | null, panel: EditorPa
 function shouldRepairSavedDurations(saved: VideoEditorProject, panels: EditorPanelDraft[]): boolean {
   const panelsByKey = new Map(panels.map((panel) => [panelKey(panel), panel]))
   return saved.timeline.some((clip) => {
-    const metadataKey = clip.metadata?.panelId || `${clip.metadata?.storyboardId ?? ''}:unknown`
+    const metadataKey = clip.metadata?.panelId || `${clip.metadata?.storyboardId ?? ''}-unknown`
     const panel = panelsByKey.get(metadataKey)
     const clipDuration = clip.durationInFrames / saved.config.fps
     const storedDuration = normalizeDurationSec(panel?.duration)
@@ -112,7 +113,9 @@ async function resolvePanelDurations(
 ): Promise<Map<string, number>> {
   const entries = await Promise.all(panels.map(async (panel) => {
     const storedDuration = normalizeDurationSec(panel.duration)
-    if (storedDuration) return [panelKey(panel), storedDuration] as const
+    if (storedDuration && (!probeMissing || storedDuration > SHORT_FALLBACK_DURATION_SEC)) {
+      return [panelKey(panel), storedDuration] as const
+    }
 
     const savedDuration = findSavedClipDuration(saved, panel)
     if (savedDuration && (!probeMissing || savedDuration > SHORT_FALLBACK_DURATION_SEC)) {
@@ -124,7 +127,7 @@ async function resolvePanelDurations(
       if (probedDuration) return [panelKey(panel), probedDuration] as const
     }
 
-    return [panelKey(panel), savedDuration ?? DEFAULT_CLIP_DURATION_SEC] as const
+    return [panelKey(panel), DEFAULT_CLIP_DURATION_SEC] as const
   }))
 
   return new Map(entries)
@@ -136,13 +139,13 @@ function applyPanelDurationsToProject(
 ): VideoEditorProject {
   let changed = false
   const timeline = project.timeline.map((clip) => {
-    const key = clip.metadata?.panelId || `${clip.metadata?.storyboardId ?? ''}:unknown`
+    const key = clip.metadata?.panelId || `${clip.metadata?.storyboardId ?? ''}-unknown`
     const duration = durations.get(key)
     if (!duration) return clip
     const durationInFrames = Math.max(1, Math.round(duration * project.config.fps))
-    if (durationInFrames === clip.durationInFrames) return clip
-    changed = true
-    return { ...clip, durationInFrames }
+    const nextClip = { ...clip, durationInFrames, transition: undefined }
+    if (durationInFrames !== clip.durationInFrames || clip.transition) changed = true
+    return nextClip
   })
 
   return changed ? { ...project, timeline } : project
@@ -154,7 +157,7 @@ function applyPanelDurationsToProject(
 export default function EditorStageRoute() {
   const { projectId, episodeId } = useWorkspaceProvider()
   const runtime = useWorkspaceStageRuntime()
-  const { storyboards, isLoading: episodeLoading } = useWorkspaceEpisodeStageData()
+  const { storyboards, voiceLines, isLoading: episodeLoading } = useWorkspaceEpisodeStageData()
   const { loadProject } = useEditorActions({ projectId, episodeId: episodeId || '' })
 
   const [initialProject, setInitialProject] = useState<VideoEditorProject | undefined>(undefined)
@@ -194,6 +197,7 @@ export default function EditorStageRoute() {
               panelIndex: p.panelIndex,
               storyboardId: p.storyboardId,
               videoUrl: url,
+              usesLipSyncVideo: !!p.lipSyncVideoUrl,
               description: p.description || undefined,
               duration: normalizeDurationSec(p.duration),
             }
@@ -236,8 +240,24 @@ export default function EditorStageRoute() {
           ...p,
           duration: durationByPanel.get(panelKey(p)) ?? DEFAULT_CLIP_DURATION_SEC,
         }))
+        const voiceLinesByPanel = new Map(
+          voiceLines
+            .filter((line) => line.audioUrl && line.matchedStoryboardId && typeof line.matchedPanelIndex === 'number')
+            .map((line) => [`${line.matchedStoryboardId}-${line.matchedPanelIndex}`, line]),
+        )
+        const clipVoiceLines = panels.map((panel) => {
+          if (panel.usesLipSyncVideo) return undefined
+          const voiceLine = voiceLinesByPanel.get(`${panel.storyboardId}-${panel.panelIndex ?? 'unknown'}`)
+          if (!voiceLine?.audioUrl) return undefined
+          return {
+            id: voiceLine.id,
+            speaker: voiceLine.speaker,
+            content: voiceLine.content,
+            audioUrl: voiceLine.audioUrl,
+          }
+        })
 
-        setInitialProject(createProjectFromPanels(episodeId, panels))
+        setInitialProject(createProjectFromPanels(episodeId, panels, clipVoiceLines))
       } catch {
         // 加载失败 → 落到空工程
       } finally {
@@ -247,7 +267,7 @@ export default function EditorStageRoute() {
     return () => {
       cancelled = true
     }
-  }, [episodeId, episodeLoading, storyboards, loadProject])
+  }, [episodeId, episodeLoading, storyboards, voiceLines, loadProject])
 
   if (!episodeId) return null
   if (loading) {

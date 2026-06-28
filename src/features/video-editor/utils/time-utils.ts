@@ -1,45 +1,13 @@
 import { VideoClip, ComputedClip, VideoEditorProject } from '../types/editor.types'
 
 /**
- * 计算某个片段与下一个片段之间的有效转场重叠帧数。
- * 当前导出链路的语义是转场参数的一半作为真实重叠时长。
- */
-export function getTransitionOverlapFrames(
-    clips: VideoClip[],
-    index: number,
-    previousAvailableFrames?: number
-): number {
-    const clip = clips[index]
-    const nextClip = clips[index + 1]
-    const transition = clip?.transition
-
-    if (!clip || !nextClip || !transition || transition.type === 'none' || transition.durationInFrames <= 0) {
-        return 0
-    }
-
-    const requestedFrames = Math.max(1, Math.floor(transition.durationInFrames / 2))
-    const previousFrames = Math.max(0, previousAvailableFrames ?? clip.durationInFrames)
-    const nextFrames = Math.max(0, nextClip.durationInFrames)
-    const maxSafeFrames = Math.min(requestedFrames, previousFrames - 1, nextFrames - 1)
-
-    return maxSafeFrames > 0 ? maxSafeFrames : 0
-}
-
-/**
  * 计算时间轴总时长 (帧数)
- * 考虑转场重叠
+ * 当前使用硬切拼接，总时长为所有片段时长之和。
  */
 export function calculateTimelineDuration(clips: VideoClip[]): number {
     if (clips.length === 0) return 0
 
-    let total = 0
-
-    clips.forEach((clip, index) => {
-        total += clip.durationInFrames
-        total -= getTransitionOverlapFrames(clips, index, total)
-    })
-
-    return Math.max(0, total)
+    return clips.reduce((total, clip) => total + clip.durationInFrames, 0)
 }
 
 /**
@@ -49,12 +17,11 @@ export function calculateTimelineDuration(clips: VideoClip[]): number {
 export function computeClipPositions(clips: VideoClip[]): ComputedClip[] {
     let currentFrame = 0
 
-    return clips.map((clip, index) => {
+    return clips.map((clip) => {
         const startFrame = currentFrame
         const endFrame = startFrame + clip.durationInFrames
 
-        // 计算下一个片段的起始位置（考虑转场重叠）
-        currentFrame = endFrame - getTransitionOverlapFrames(clips, index, endFrame)
+        currentFrame = endFrame
 
         return {
             ...clip,

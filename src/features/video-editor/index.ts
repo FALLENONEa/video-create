@@ -22,7 +22,6 @@ export type {
 export {
     calculateTimelineDuration,
     computeClipPositions,
-    getTransitionOverlapFrames,
     framesToTime,
     timeToFrames,
     generateClipId,
@@ -31,7 +30,6 @@ export {
 
 // Components
 export { VideoEditorStage } from './components/VideoEditorStage'
-export { TransitionPicker } from './components/TransitionPicker'
 
 // Hooks
 export { useEditorState } from './hooks/useEditorState'

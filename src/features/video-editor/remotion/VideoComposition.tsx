@@ -1,7 +1,7 @@
 import React from 'react'
 import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, interpolate } from 'remotion'
 import { VideoClip, BgmClip, EditorConfig } from '../types/editor.types'
-import { computeClipPositions, getTransitionOverlapFrames } from '../utils/time-utils'
+import { computeClipPositions } from '../utils/time-utils'
 
 interface VideoCompositionProps {
     clips: VideoClip[]
@@ -11,25 +11,20 @@ interface VideoCompositionProps {
 
 /**
  * Remotion 主合成组件
- * 使用 Sequence 实现磁性时间轴布局，支持转场效果
+ * 使用 Sequence 实现顺序硬切预览，保持与导出链路一致。
  */
 export const VideoComposition: React.FC<VideoCompositionProps> = ({
     clips,
     bgmTrack,
     config
 }) => {
+    void config
     const computedClips = computeClipPositions(clips)
 
     return (
         <AbsoluteFill style={{ backgroundColor: 'black' }}>
-            {/* 视频轨道 - 带转场效果 */}
+            {/* 视频轨道 */}
             {computedClips.map((clip, index) => {
-                const enterDuration = index > 0
-                    ? getTransitionOverlapFrames(clips, index - 1, computedClips[index - 1]?.endFrame)
-                    : 0
-                const exitDuration = getTransitionOverlapFrames(clips, index, clip.endFrame)
-                const enterTransitionType = index > 0 ? clips[index - 1]?.transition?.type : undefined
-
                 return (
                     <Sequence
                         key={clip.id}
@@ -39,12 +34,6 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
                     >
                         <ClipRenderer
                             clip={clip}
-                            config={config}
-                            enterTransitionType={enterTransitionType}
-                            enterTransitionDuration={enterDuration}
-                            exitTransitionType={clip.transition?.type}
-                            exitTransitionDuration={exitDuration}
-                            isLastClip={index === computedClips.length - 1}
                         />
                     </Sequence>
                 )
@@ -98,78 +87,17 @@ const BgmRenderer: React.FC<BgmRendererProps> = ({ bgm }) => {
 }
 
 /**
- * 单个片段渲染器 - 支持转场效果
+ * 单个片段渲染器。
  */
 interface ClipRendererProps {
     clip: VideoClip & { startFrame: number; endFrame: number }
-    config: EditorConfig
-    enterTransitionType?: 'none' | 'dissolve' | 'fade' | 'slide'
-    enterTransitionDuration: number
-    exitTransitionType?: 'none' | 'dissolve' | 'fade' | 'slide'
-    exitTransitionDuration: number
-    isLastClip: boolean
 }
 
 const ClipRenderer: React.FC<ClipRendererProps> = ({
     clip,
-    config,
-    enterTransitionType = 'none',
-    enterTransitionDuration,
-    exitTransitionType = 'none',
-    exitTransitionDuration,
-    isLastClip
 }) => {
-    void config
-    const frame = useCurrentFrame()
-    const clipDuration = clip.durationInFrames
-
-    // 计算转场效果
-    let opacity = 1
-    let translateX = 0
-
-    if (enterTransitionType !== 'none' && enterTransitionDuration > 0 && frame < enterTransitionDuration) {
-        const enterProgress = interpolate(
-            frame,
-            [0, enterTransitionDuration],
-            [0, 1],
-            { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
-        )
-
-        switch (enterTransitionType) {
-            case 'dissolve':
-            case 'fade':
-                opacity *= enterProgress
-                break
-            case 'slide':
-                translateX += (1 - enterProgress) * 100
-                break
-        }
-    }
-
-    if (exitTransitionType !== 'none' && exitTransitionDuration > 0) {
-        // 出场转场效果 (在片段末尾)
-        if (!isLastClip && frame > clipDuration - exitTransitionDuration) {
-            const exitProgress = interpolate(
-                frame,
-                [clipDuration - exitTransitionDuration, clipDuration],
-                [0, 1],
-                { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
-            )
-
-            switch (exitTransitionType) {
-                case 'dissolve':
-                case 'fade':
-                    opacity *= 1 - exitProgress
-                    break
-                case 'slide':
-                    translateX -= exitProgress * 100
-                    break
-            }
-        }
-    }
-
     return (
-        <AbsoluteFill style={{ opacity, transform: translateX === 0 ? 'none' : `translateX(${translateX}%)` }}>
+        <AbsoluteFill>
             {/* 视频 */}
             <Video
                 src={clip.src}

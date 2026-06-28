@@ -48,6 +48,8 @@ export const Timeline: React.FC<TimelineProps> = ({
     // 计算总时长和播放头位置
     const totalDuration = calculateTimelineDuration(clips)
     const playheadPosition = totalDuration > 0 ? (timelineState.currentFrame / totalDuration) * 100 : 0
+    const audioClips = clips.filter(c => c.attachment?.audio)
+    const hasAudioTrack = audioClips.length > 0
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -214,66 +216,47 @@ export const Timeline: React.FC<TimelineProps> = ({
                 </DndContext>
             </div>
 
-            {/* 配音轨道 (显示附属音频) */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: '40px',
-                background: 'var(--glass-bg-surface-strong)',
-                border: '1px solid var(--glass-stroke-base)',
-                borderRadius: '6px',
-                padding: '0 12px'
-            }}>
-                <span style={{
-                    fontSize: '12px',
-                    color: 'var(--glass-text-secondary)',
-                    width: '70px',
-                    flexShrink: 0
+            {hasAudioTrack && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    height: '40px',
+                    background: 'var(--glass-bg-surface-strong)',
+                    border: '1px solid var(--glass-stroke-base)',
+                    borderRadius: '6px',
+                    padding: '0 12px'
                 }}>
-                    {t('editor.timeline.audioTrack')}
-                </span>
-                <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
-                    {clips.filter(c => c.attachment?.audio).map((clip) => (
-                        <div
-                            key={`audio-${clip.id}`}
-                            style={{
-                                width: `${clip.durationInFrames * timelineState.zoom * 2}px`,
-                                height: '28px',
-                                background: 'var(--glass-tone-success-bg)',
-                                borderRadius: '4px',
-                                fontSize: '10px',
-                                color: 'var(--glass-tone-success-fg)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                            }}
-                        >
-                            {t('editor.timeline.audioBadge')}
-                        </div>
-                    ))}
+                    <span style={{
+                        fontSize: '12px',
+                        color: 'var(--glass-text-secondary)',
+                        width: '70px',
+                        flexShrink: 0
+                    }}>
+                        {t('editor.timeline.audioTrack')}
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+                        {audioClips.map((clip) => (
+                            <div
+                                key={`audio-${clip.id}`}
+                                style={{
+                                    width: `${clip.durationInFrames * timelineState.zoom * 2}px`,
+                                    height: '28px',
+                                    background: 'var(--glass-tone-success-bg)',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    color: 'var(--glass-tone-success-fg)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}
+                            >
+                                {t('editor.timeline.audioBadge')}
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
-
-            {/* BGM 轨道 */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: '40px',
-                background: 'var(--glass-bg-surface-strong)',
-                border: '1px solid var(--glass-stroke-base)',
-                borderRadius: '6px',
-                padding: '0 12px'
-            }}>
-                <span style={{
-                    fontSize: '12px',
-                    color: 'var(--glass-text-secondary)',
-                    width: '70px',
-                    flexShrink: 0
-                }}>
-                    BGM
-                </span>
-            </div>
+            )}
         </div>
     )
 }
@@ -349,28 +332,6 @@ const SortableClip: React.FC<SortableClipProps> = ({
             }}>
                 {framesToTime(clip.durationInFrames, fps)}
             </span>
-
-            {/* 转场指示器 */}
-            {clip.transition && clip.transition.type !== 'none' && (
-                <div style={{
-                    position: 'absolute',
-                    right: '-6px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '12px',
-                    height: '12px',
-                    background: 'var(--glass-tone-warning-fg)',
-                    borderRadius: '50%',
-                    fontSize: '8px',
-                    color: 'var(--glass-text-on-accent)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 10
-                }}>
-                    T
-                </div>
-            )}
         </div>
     )
 }

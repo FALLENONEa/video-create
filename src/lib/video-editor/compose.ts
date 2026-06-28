@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import type { VideoClip, BgmClip, EditorConfig } from '@/features/video-editor/types/editor.types'
-import { calculateTimelineDuration, getTransitionOverlapFrames } from '@/features/video-editor/utils/time-utils'
+import { calculateTimelineDuration } from '@/features/video-editor/utils/time-utils'
 import { downloadToFile, runFfmpeg, runFfprobe, type ProbeResult } from './ffmpeg-runner'
 import { createScopedLogger } from '@/lib/logging/core'
 
@@ -75,7 +75,7 @@ function framesToSec(frames: number, fps: number): number {
  * 流程（4 阶段，全程 ffmpeg，不依赖 Chromium）：
  *   1. 下载所有素材到 workDir + ffprobe 摸底（0-10%）
  *   2. 每段标准化：scale+pad 画幅适配、trim 裁剪、统一帧率、烧字幕、叠配音、保底音频轨（10-55%）
- *   3. xfade/acrossfade 串联转场（55-90%）
+ *   3. concat 顺序硬切拼接（55-90%）
  *   4. 叠 BGM 混音（90-100%）
  *
  * 调用方负责在用完后调用 cleanup 删除临时目录。
@@ -130,7 +130,7 @@ export async function renderEditorProject(
     const normFiles = await stageNormalize(ctx, (p) => emit(mapStage(10, 55, p)))
     await checkCancel()
 
-    // ── 阶段 3：xfade 串联 ──
+    // ── 阶段 3：顺序硬切拼接 ──
     const totalSec = framesToSec(calculateTimelineDuration(input.clips), fps)
     const concatFile = await stageConcat(ctx, normFiles, totalSec, (p) => emit(mapStage(55, 90, p)))
     await checkCancel()
@@ -279,7 +279,7 @@ function buildNormalizeFilter(
   } else if (media.probe.hasAudio) {
     parts.push(`[0:a]aresample=${AUDIO_RATE}[a]`)
   } else {
-    // 纯画面无原声也无配音：补静音轨，保证后续 xfade/acrossfade 音频流一致
+    // 纯画面无原声也无配音：补静音轨，保证后续 concat 音频流一致
     parts.push(`anullsrc=r=${AUDIO_RATE}:cl=${AUDIO_CH}[a]`)
   }
   return parts.join(';')
@@ -336,24 +336,14 @@ async function stageNormalize(
   return normFiles
 }
 
-/** 转场规格。无转场时由 stageConcat 退化为普通 concat。 */
-function transitionSpec(clip: VideoClip): { type: string } {
-  const t = clip.transition
-  if (!t || t.type === 'none' || t.durationInFrames <= 0) {
-    return { type: 'fade' }
-  }
-  const map: Record<string, string> = { dissolve: 'fade', fade: 'fadeblack', slide: 'slideleft' }
-  return { type: map[t.type] ?? 'fade' }
-}
-
-/** 阶段 3：xfade/acrossfade 串联所有标准化片段。单片段直接返回。 */
+/** 阶段 3：顺序硬切拼接所有标准化片段。单片段直接返回。 */
 async function stageConcat(
   ctx: StageContext,
   normFiles: string[],
   totalSec: number,
   onProgress: (p: number) => void,
 ): Promise<string> {
-  const { clips, config, workDir, shouldCancel } = ctx
+  const { config, workDir, shouldCancel } = ctx
   const fps = config.fps
 
   if (normFiles.length === 1) {
@@ -367,26 +357,14 @@ async function stageConcat(
   const parts: string[] = []
   let prevV = '0:v'
   let prevA = '0:a'
-  let curLen = framesToSec(clips[0].durationInFrames, fps)
 
   for (let i = 1; i < normFiles.length; i++) {
-    const spec = transitionSpec(clips[i - 1])
-    const overlapFrames = getTransitionOverlapFrames(clips, i - 1, Math.round(curLen * fps))
-    const curClipSec = framesToSec(clips[i].durationInFrames, fps)
-    const durSec = overlapFrames / fps
     const isLast = i === normFiles.length - 1
     const vLabel = isLast ? 'vout' : `vt${i}`
     const aLabel = isLast ? 'aout' : `at${i}`
-    if (durSec > 0) {
-      const offset = Math.max(0, curLen - durSec)
-      parts.push(`[${prevV}][${i}:v]xfade=transition=${spec.type}:duration=${durSec}:offset=${offset}[${vLabel}]`)
-      parts.push(`[${prevA}][${i}:a]acrossfade=d=${durSec}:c1=tri:c2=tri[${aLabel}]`)
-    } else {
-      parts.push(`[${prevV}][${prevA}][${i}:v][${i}:a]concat=n=2:v=1:a=1[${vLabel}][${aLabel}]`)
-    }
+    parts.push(`[${prevV}][${prevA}][${i}:v][${i}:a]concat=n=2:v=1:a=1[${vLabel}][${aLabel}]`)
     prevV = vLabel
     prevA = aLabel
-    curLen = curLen + curClipSec - durSec
   }
 
   const args = [

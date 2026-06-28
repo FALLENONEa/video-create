@@ -29,7 +29,7 @@ const DEFAULT_CLIP_DURATION_SEC = 5
 export function createProjectFromPanels(
     episodeId: string,
     panels: PanelData[],
-    voiceLines?: Array<{ id: string; speaker: string; content: string; audioUrl?: string | null }>
+    voiceLines?: Array<{ id: string; speaker: string; content: string; audioUrl?: string | null } | undefined>
 ): VideoEditorProject {
     // 过滤出有视频的面板
     const videoPanels = panels.filter(p => p.videoUrl)
@@ -54,10 +54,6 @@ export function createProjectFromPanels(
                     style: 'default' as const
                 } : undefined
             },
-            transition: index < videoPanels.length - 1 ? {
-                type: 'dissolve' as const,
-                durationInFrames: 15 // 0.5s @ 30fps
-            } : undefined,
             metadata: {
                 panelId: panel.id || `${panel.storyboardId}-${panel.panelIndex ?? index}`,
                 storyboardId: panel.storyboardId,

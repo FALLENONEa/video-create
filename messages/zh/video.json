@@ -155,15 +155,14 @@
       "download": "下载成片"
     },
     "left": {
-      "title": "素材库",
-      "description": "从视频阶段导入的片段将显示在这里"
+      "title": "当前片段",
+      "description": "视频阶段生成的片段会自动进入时间轴"
     },
     "right": {
       "title": "属性",
       "clipLabel": "片段:",
       "clipFallback": "片段 {index}",
       "durationLabel": "时长:",
-      "transitionLabel": "转场到下一片段",
       "deleteConfirm": "确定删除此片段？",
       "deleteClip": "删除片段",
       "selectClipHint": "选择一个片段查看属性"
@@ -174,19 +173,9 @@
     "timeline": {
       "zoomLabel": "缩放:",
       "videoTrack": "视频",
-      "emptyHint": "从素材库拖拽视频片段到这里",
-      "audioTrack": "配音",
+      "emptyHint": "视频阶段生成的片段会自动出现在这里",
+      "audioTrack": "随片段配音",
       "audioBadge": "配"
-    },
-    "transition": {
-      "title": "转场效果",
-      "duration": "持续时间",
-      "options": {
-        "none": "无",
-        "dissolve": "溶解",
-        "fade": "淡入淡出",
-        "slide": "滑动"
-      }
     }
   },
   "errors": {

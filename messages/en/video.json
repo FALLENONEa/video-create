@@ -155,15 +155,14 @@
       "download": "Download"
     },
     "left": {
-      "title": "Media Library",
-      "description": "Clips imported from the video stage will appear here"
+      "title": "Current Clips",
+      "description": "Clips generated in the video stage are added to the timeline automatically"
     },
     "right": {
       "title": "Properties",
       "clipLabel": "Clip:",
       "clipFallback": "Clip {index}",
       "durationLabel": "Duration:",
-      "transitionLabel": "Transition to Next Clip",
       "deleteConfirm": "Delete this clip?",
       "deleteClip": "Delete Clip",
       "selectClipHint": "Select a clip to view properties"
@@ -174,19 +173,9 @@
     "timeline": {
       "zoomLabel": "Zoom:",
       "videoTrack": "Video",
-      "emptyHint": "Drag video clips from media library to here",
-      "audioTrack": "Voice",
+      "emptyHint": "Generated video clips will appear here automatically",
+      "audioTrack": "Clip Voice",
       "audioBadge": "A"
-    },
-    "transition": {
-      "title": "Transition",
-      "duration": "Duration",
-      "options": {
-        "none": "None",
-        "dissolve": "Dissolve",
-        "fade": "Fade",
-        "slide": "Slide"
-      }
     }
   },
   "errors": {

@@ -2,15 +2,14 @@
 import { logError as _ulogError } from '@/lib/logging/core'
 import { useTranslations } from 'next-intl'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { AppIcon } from '@/components/ui/icons'
 import { useEditorState } from '../hooks/useEditorState'
 import { useEditorActions } from '../hooks/useEditorActions'
 import { VideoEditorProject } from '../types/editor.types'
-import { calculateTimelineDuration, framesToTime } from '../utils/time-utils'
+import { calculateTimelineDuration, computeClipPositions, framesToTime } from '../utils/time-utils'
 import { RemotionPreview } from './Preview'
 import { Timeline } from './Timeline'
-import { TransitionPicker, TransitionType } from './TransitionPicker'
 
 interface VideoEditorStageProps {
     projectId: string
@@ -46,7 +45,6 @@ export function VideoEditorStage({
         timelineState,
         isDirty,
         removeClip,
-        updateClip,
         reorderClips,
         play,
         pause,
@@ -83,6 +81,7 @@ export function VideoEditorStage({
     const totalDuration = calculateTimelineDuration(project.timeline)
     const totalTime = framesToTime(totalDuration, project.config.fps)
     const currentTime = framesToTime(timelineState.currentFrame, project.config.fps)
+    const clipPositions = useMemo(() => computeClipPositions(project.timeline), [project.timeline])
 
     const handleSave = async () => {
         if (!isDirty && renderStatus === 'completed' && outputUrl) return
@@ -178,19 +177,70 @@ export function VideoEditorStage({
                 flex: 1,
                 overflow: 'hidden'
             }}>
-                {/* Left Panel - Media Library */}
+                {/* Left Panel - Current clips */}
                 <div style={{
                     width: '200px',
                     borderRight: '1px solid var(--glass-stroke-base)',
                     padding: '12px',
-                    background: 'var(--glass-bg-surface-strong)'
+                    background: 'var(--glass-bg-surface-strong)',
+                    overflowY: 'auto'
                 }}>
                     <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: 'var(--glass-text-secondary)' }}>
                         {t('editor.left.title')}
                     </h3>
-                    <p style={{ fontSize: '12px', color: 'var(--glass-text-tertiary)' }}>
-                        {t('editor.left.description')}
-                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {clipPositions.map((clip, index) => (
+                            <button
+                                key={clip.id}
+                                onClick={() => {
+                                    selectClip(clip.id)
+                                    seek(clip.startFrame)
+                                }}
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'stretch',
+                                    gap: '4px',
+                                    padding: '8px',
+                                    borderRadius: '6px',
+                                    border: timelineState.selectedClipId === clip.id
+                                        ? '1px solid var(--glass-stroke-focus)'
+                                        : '1px solid var(--glass-stroke-base)',
+                                    background: timelineState.selectedClipId === clip.id
+                                        ? 'var(--glass-tone-info-bg)'
+                                        : 'var(--glass-bg-surface)',
+                                    color: 'var(--glass-text-primary)',
+                                    cursor: 'pointer',
+                                    textAlign: 'left'
+                                }}
+                            >
+                                <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                                    {t('editor.right.clipFallback', { index: index + 1 })}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--glass-text-secondary)' }}>
+                                    {framesToTime(clip.durationInFrames, project.config.fps)}
+                                </span>
+                                {clip.metadata?.description && (
+                                    <span
+                                        style={{
+                                            fontSize: '11px',
+                                            color: 'var(--glass-text-tertiary)',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {clip.metadata.description}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                        {clipPositions.length === 0 && (
+                            <p style={{ fontSize: '12px', color: 'var(--glass-text-tertiary)' }}>
+                                {t('editor.left.description')}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
                 {/* Center - Preview + Properties */}
@@ -276,22 +326,6 @@ export function VideoEditorStage({
                                 <p style={{ margin: '0 0 8px 0' }}>
                                     <span style={{ color: 'var(--glass-text-secondary)' }}>{t('editor.right.durationLabel')}</span> {framesToTime(selectedClip.durationInFrames, project.config.fps)}
                                 </p>
-                            </div>
-
-                            {/* 转场设置 */}
-                            <div>
-                                <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--glass-text-secondary)' }}>
-                                    {t('editor.right.transitionLabel')}
-                                </h4>
-                                <TransitionPicker
-                                    value={(selectedClip.transition?.type as TransitionType) || 'none'}
-                                    duration={selectedClip.transition?.durationInFrames || 15}
-                                    onChange={(type, duration) => {
-                                        updateClip(selectedClip.id, {
-                                            transition: type === 'none' ? undefined : { type, durationInFrames: duration }
-                                        })
-                                    }}
-                                />
                             </div>
 
                             {/* 删除按钮 */}

@@ -7,6 +7,28 @@ import { useWorkspaceProvider } from '../WorkspaceProvider'
 import { useWorkspaceStageRuntime } from '../WorkspaceStageRuntimeContext'
 import { useWorkspaceEpisodeStageData } from '../hooks/useWorkspaceEpisodeStageData'
 
+const DEFAULT_CLIP_DURATION_SEC = 5
+const SHORT_FALLBACK_DURATION_SEC = 3.1
+const PROBE_TIMEOUT_MS = 10_000
+const PROBE_ATTEMPTS = 3
+
+interface EditorPanelDraft {
+  id?: string
+  panelIndex?: number
+  storyboardId: string
+  videoUrl: string
+  description?: string
+  duration?: number
+}
+
+function normalizeDurationSec(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+function panelKey(panel: Pick<EditorPanelDraft, 'id' | 'storyboardId' | 'panelIndex'>): string {
+  return panel.id || `${panel.storyboardId}:${panel.panelIndex ?? 'unknown'}`
+}
+
 /**
  * 探测视频可否访问并读取真实时长（秒）。失败/超时返回 null（与真实时长区分）。
  * 用于在 lipSyncVideoUrl / videoUrl 之间选出浏览器真正能加载的那个。
@@ -41,7 +63,7 @@ function probeVideoDuration(src: string): Promise<number | null> {
     video.onloadedmetadata = () =>
       done(Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null)
     video.onerror = () => done(null)
-    timer = setTimeout(() => done(null), 6000)
+    timer = setTimeout(() => done(null), PROBE_TIMEOUT_MS)
     document.body.appendChild(video)
     video.src = src
     try {
@@ -52,21 +74,106 @@ function probeVideoDuration(src: string): Promise<number | null> {
   })
 }
 
+async function probeVideoDurationWithRetry(src: string): Promise<number | null> {
+  for (let attempt = 0; attempt < PROBE_ATTEMPTS; attempt += 1) {
+    const duration = await probeVideoDuration(src)
+    if (duration !== null) return duration
+  }
+  return null
+}
+
+function findSavedClipDuration(saved: VideoEditorProject | null, panel: EditorPanelDraft): number | undefined {
+  if (!saved) return undefined
+  const key = panelKey(panel)
+  const clip = saved.timeline.find((item) => {
+    const metadata = item.metadata
+    const metadataKey = metadata?.panelId || `${metadata?.storyboardId ?? ''}:${panel.panelIndex ?? 'unknown'}`
+    return metadataKey === key
+  })
+  return normalizeDurationSec(clip ? clip.durationInFrames / saved.config.fps : undefined)
+}
+
+function shouldRepairSavedDurations(saved: VideoEditorProject, panels: EditorPanelDraft[]): boolean {
+  const panelsByKey = new Map(panels.map((panel) => [panelKey(panel), panel]))
+  return saved.timeline.some((clip) => {
+    const metadataKey = clip.metadata?.panelId || `${clip.metadata?.storyboardId ?? ''}:unknown`
+    const panel = panelsByKey.get(metadataKey)
+    const clipDuration = clip.durationInFrames / saved.config.fps
+    const storedDuration = normalizeDurationSec(panel?.duration)
+    if (storedDuration && Math.abs(clipDuration - storedDuration) > (1 / saved.config.fps)) return true
+    return clipDuration <= SHORT_FALLBACK_DURATION_SEC
+  })
+}
+
+async function resolvePanelDurations(
+  panels: EditorPanelDraft[],
+  saved: VideoEditorProject | null,
+  probeMissing: boolean,
+): Promise<Map<string, number>> {
+  const entries = await Promise.all(panels.map(async (panel) => {
+    const storedDuration = normalizeDurationSec(panel.duration)
+    if (storedDuration) return [panelKey(panel), storedDuration] as const
+
+    const savedDuration = findSavedClipDuration(saved, panel)
+    if (savedDuration && (!probeMissing || savedDuration > SHORT_FALLBACK_DURATION_SEC)) {
+      return [panelKey(panel), savedDuration] as const
+    }
+
+    if (probeMissing) {
+      const probedDuration = await probeVideoDurationWithRetry(panel.videoUrl)
+      if (probedDuration) return [panelKey(panel), probedDuration] as const
+    }
+
+    return [panelKey(panel), savedDuration ?? DEFAULT_CLIP_DURATION_SEC] as const
+  }))
+
+  return new Map(entries)
+}
+
+function applyPanelDurationsToProject(
+  project: VideoEditorProject,
+  durations: Map<string, number>,
+): VideoEditorProject {
+  let changed = false
+  const timeline = project.timeline.map((clip) => {
+    const key = clip.metadata?.panelId || `${clip.metadata?.storyboardId ?? ''}:unknown`
+    const duration = durations.get(key)
+    if (!duration) return clip
+    const durationInFrames = Math.max(1, Math.round(duration * project.config.fps))
+    if (durationInFrames === clip.durationInFrames) return clip
+    changed = true
+    return { ...clip, durationInFrames }
+  })
+
+  return changed ? { ...project, timeline } : project
+}
+
 /**
  * AI 剪辑 stage：加载已保存工程；若无则从当前 episode 的分镜面板（含已生成视频）自动构造。
  */
 export default function EditorStageRoute() {
   const { projectId, episodeId } = useWorkspaceProvider()
   const runtime = useWorkspaceStageRuntime()
-  const { storyboards } = useWorkspaceEpisodeStageData()
+  const { storyboards, isLoading: episodeLoading } = useWorkspaceEpisodeStageData()
   const { loadProject } = useEditorActions({ projectId, episodeId: episodeId || '' })
 
   const [initialProject, setInitialProject] = useState<VideoEditorProject | undefined>(undefined)
   const [loading, setLoading] = useState(true)
 
+  // episodeId 变化时立即回到加载态并清空旧工程，避免切换 episode 时串台显示上一个的内容
+  useEffect(() => {
+    setLoading(true)
+    setInitialProject(undefined)
+  }, [episodeId])
+
   useEffect(() => {
     if (!episodeId) {
       setLoading(false)
+      return
+    }
+    // 等剧集数据（含分镜面板）就绪后再构造，否则首次进入会因 storyboards 尚未加载而落空
+    if (episodeLoading) {
+      setLoading(true)
       return
     }
     let cancelled = false
@@ -74,12 +181,6 @@ export default function EditorStageRoute() {
       try {
         const saved = await loadProject()
         if (cancelled) return
-        // 仅当存档含有效片段时才采用；空 timeline 存档（如误触导出保存的空工程）
-        // 回退到面板重建，避免被空存档永久固化
-        if (saved && Array.isArray(saved.timeline) && saved.timeline.length > 0) {
-          setInitialProject(saved)
-          return
-        }
         // 先收集所有"有视频源"的面板——panel 是否纳入只取决于有无 URL，
         // 绝不因时长探测失败而丢弃（这正是上一版视频整体消失的根因）。
         // lipSyncVideoUrl 优先，回退 videoUrl。
@@ -94,35 +195,46 @@ export default function EditorStageRoute() {
               storyboardId: p.storyboardId,
               videoUrl: url,
               description: p.description || undefined,
-              duration:
-                typeof p.duration === 'number' && p.duration > 0 ? p.duration : undefined,
+              duration: normalizeDurationSec(p.duration),
             }
           })
           .filter((p): p is NonNullable<typeof p> => p !== null)
 
-        if (basePanels.length === 0) return
+        if (basePanels.length === 0) {
+          if (saved && Array.isArray(saved.timeline) && saved.timeline.length > 0) {
+            setInitialProject(saved)
+          }
+          return
+        }
 
-        // 时长探测仅用于"修正"：成功用视频真实时长，失败回退 panel.duration，再回退默认 3s
-        const durations = await Promise.all(
-          basePanels.map((p) => probeVideoDuration(p.videoUrl)),
+        const hasSavedTimeline = !!saved && Array.isArray(saved.timeline) && saved.timeline.length > 0
+        const repairSaved = hasSavedTimeline ? shouldRepairSavedDurations(saved, basePanels) : false
+        const durationByPanel = await resolvePanelDurations(
+          basePanels,
+          saved,
+          !hasSavedTimeline || repairSaved,
         )
         if (cancelled) return
 
         if (process.env.NODE_ENV !== 'production') {
-          const ok = durations.filter((d) => d !== null).length
           console.debug(
-            `[editor] 视频时长探测 ${ok}/${durations.length} 成功`,
-            basePanels.map((p, i) => ({
+            '[editor] 剪辑片段时长',
+            basePanels.map((p) => ({
               url: p.videoUrl,
-              probed: durations[i],
               panelDuration: p.duration,
+              resolved: durationByPanel.get(panelKey(p)),
             })),
           )
         }
 
-        const panels = basePanels.map((p, i) => ({
+        if (hasSavedTimeline && saved) {
+          setInitialProject(applyPanelDurationsToProject(saved, durationByPanel))
+          return
+        }
+
+        const panels = basePanels.map((p) => ({
           ...p,
-          duration: durations[i] ?? p.duration ?? 3,
+          duration: durationByPanel.get(panelKey(p)) ?? DEFAULT_CLIP_DURATION_SEC,
         }))
 
         setInitialProject(createProjectFromPanels(episodeId, panels))
@@ -135,7 +247,7 @@ export default function EditorStageRoute() {
     return () => {
       cancelled = true
     }
-  }, [episodeId, storyboards, loadProject])
+  }, [episodeId, episodeLoading, storyboards, loadProject])
 
   if (!episodeId) return null
   if (loading) {
@@ -148,6 +260,7 @@ export default function EditorStageRoute() {
 
   return (
     <VideoEditorStage
+      key={episodeId}
       projectId={projectId}
       episodeId={episodeId}
       initialProject={initialProject}

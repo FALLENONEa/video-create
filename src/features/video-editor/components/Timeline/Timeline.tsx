@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { VideoClip, TimelineState, EditorConfig } from '../../types/editor.types'
-import { framesToTime } from '../../utils/time-utils'
+import { calculateTimelineDuration, framesToTime } from '../../utils/time-utils'
 
 interface TimelineProps {
     clips: VideoClip[]
@@ -46,7 +46,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 }) => {
     const t = useTranslations('video')
     // 计算总时长和播放头位置
-    const totalDuration = clips.reduce((sum, clip) => sum + clip.durationInFrames, 0)
+    const totalDuration = calculateTimelineDuration(clips)
     const playheadPosition = totalDuration > 0 ? (timelineState.currentFrame / totalDuration) * 100 : 0
     const sensors = useSensors(
         useSensor(PointerSensor, {

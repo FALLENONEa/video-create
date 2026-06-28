@@ -141,7 +141,7 @@ export function useWizardState({ projectId, importStatus, onImportComplete, t, i
       autoAnalyzeTriggered.current = true
       void handleAnalyze()
     }
-  }) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [handleAnalyze, initialRawContent, stage])
 
 
   const handleMarkerSplit = useCallback(async () => {

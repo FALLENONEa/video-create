@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createAudioGenerator, createImageGenerator, createVideoGenerator } from '@/lib/generators/factory'
 import { GoogleVeoVideoGenerator } from '@/lib/generators/video/google'
-import { OpenAICompatibleVideoGenerator } from '@/lib/generators/video/openai-compatible'
 import { BailianAudioGenerator, BailianImageGenerator, BailianVideoGenerator, SiliconFlowAudioGenerator } from '@/lib/generators/official'
 
 describe('generator factory', () => {

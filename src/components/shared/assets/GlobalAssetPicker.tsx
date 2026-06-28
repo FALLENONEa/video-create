@@ -9,7 +9,6 @@ import { MediaImageWithLoading } from '@/components/media/MediaImageWithLoading'
 import { AppIcon } from '@/components/ui/icons'
 import { apiFetch } from '@/lib/api-fetch'
 import type {
-  AssetSummary,
   CharacterAssetSummary,
   LocationAssetSummary,
   PropAssetSummary,

@@ -22,16 +22,12 @@ export type {
 export {
     calculateTimelineDuration,
     computeClipPositions,
+    getTransitionOverlapFrames,
     framesToTime,
     timeToFrames,
     generateClipId,
     createDefaultProject
 } from './utils/time-utils'
-
-export {
-    migrateProjectData,
-    validateProjectData
-} from './utils/migration'
 
 // Components
 export { VideoEditorStage } from './components/VideoEditorStage'

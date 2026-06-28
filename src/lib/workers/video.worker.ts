@@ -86,7 +86,7 @@ async function generateVideoForPanel(
   modelId: string,
   projectVideoRatio: string | null | undefined,
   generationOptions: VideoOptionMap,
-): Promise<{ cosKey: string; generationMode: VideoGenerationMode; actualVideoTokens?: number }> {
+): Promise<{ cosKey: string; generationMode: VideoGenerationMode; durationSec?: number; actualVideoTokens?: number }> {
   if (!panel.imageUrl) {
     throw new Error(`Panel ${panel.id} has no imageUrl`)
   }
@@ -180,6 +180,7 @@ async function generateVideoForPanel(
   return {
     cosKey,
     generationMode,
+    ...(typeof generatedVideo.durationSec === 'number' ? { durationSec: generatedVideo.durationSec } : {}),
     ...(typeof generatedVideo.actualVideoTokens === 'number'
       ? { actualVideoTokens: generatedVideo.actualVideoTokens }
       : {}),
@@ -202,7 +203,7 @@ async function handleVideoPanelTask(job: Job<TaskJobData>) {
     panelId: panel.id,
   })
 
-  const { cosKey, generationMode, actualVideoTokens } = await generateVideoForPanel(
+  const { cosKey, generationMode, durationSec, actualVideoTokens } = await generateVideoForPanel(
     job,
     panel,
     payload,
@@ -217,12 +218,14 @@ async function handleVideoPanelTask(job: Job<TaskJobData>) {
     data: {
       videoUrl: cosKey,
       videoGenerationMode: generationMode,
+      ...(typeof durationSec === 'number' ? { duration: durationSec } : {}),
     },
   })
 
   return {
     panelId: panel.id,
     videoUrl: cosKey,
+    ...(typeof durationSec === 'number' ? { duration: durationSec } : {}),
     ...(typeof actualVideoTokens === 'number' ? { actualVideoTokens } : {}),
   }
 }

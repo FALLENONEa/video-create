@@ -7,7 +7,10 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { AbstractIntlMessages } from 'next-intl'
 import LocationSection from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/components/assets/LocationSection'
 
-const locationCardMock = vi.hoisted(() => vi.fn((_props: unknown) => null))
+const locationCardMock = vi.hoisted(() => vi.fn((props: unknown) => {
+  void props
+  return null
+}))
 const useProjectAssetsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/query/hooks/useProjectAssets', () => ({

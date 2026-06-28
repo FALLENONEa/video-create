@@ -22,9 +22,6 @@ const PROJECT_IMAGE_MODEL_FIELDS = [
   'editModel',
 ] as const
 
-type UserImageModelField = typeof USER_IMAGE_MODEL_FIELDS[number]
-type ProjectImageModelField = typeof PROJECT_IMAGE_MODEL_FIELDS[number]
-
 interface UserPreferenceRow {
   id: string
   userId: string

@@ -180,7 +180,7 @@ async function uploadFile(fileInfo: {localPath: string, key: string, size: numbe
     })
     
     // 验证上传
-    const stat = await minioClient.statObject(CONFIG.minio.bucket, key)
+    await minioClient.statObject(CONFIG.minio.bucket, key)
     
     // 记录迁移成功
     migratedKeys.add(key)

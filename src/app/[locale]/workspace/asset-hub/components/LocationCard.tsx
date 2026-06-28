@@ -99,7 +99,6 @@ export function LocationCard({ location, assetType = 'location', onImageClick, o
     requestedCount: generatedImageCount > 1 ? generatedImageCount : generationCount,
   })
   const displaySlotCount = displaySelectionImages.length
-  const hasMultipleImages = generatedImageCount > 1
   const singleImageAspectClassName = assetType === 'prop' ? 'aspect-[3/2]' : 'aspect-square'
   const displayTaskPresentation = isTaskRunning
     ? resolveTaskPresentationState({

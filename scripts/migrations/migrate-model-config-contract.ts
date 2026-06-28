@@ -17,18 +17,6 @@ type ModelField =
   | 'editModel'
   | 'videoModel'
 
-type PreferenceRow = {
-  id: string
-  userId: string
-  customModels: string | null
-  analysisModel: string | null
-  characterModel: string | null
-  locationModel: string | null
-  storyboardModel: string | null
-  editModel: string | null
-  videoModel: string | null
-}
-
 type ProjectRow = {
   id: string
   projectId: string

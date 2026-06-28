@@ -8,7 +8,10 @@ import type { AbstractIntlMessages } from 'next-intl'
 import CharacterSection from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/components/assets/CharacterSection'
 
 const useProjectAssetsMock = vi.hoisted(() => vi.fn())
-const characterCardMock = vi.hoisted(() => vi.fn((_props: unknown) => null))
+const characterCardMock = vi.hoisted(() => vi.fn((props: unknown) => {
+  void props
+  return null
+}))
 
 vi.mock('@/lib/query/hooks/useProjectAssets', () => ({
   useProjectAssets: (projectId: string | null) => useProjectAssetsMock(projectId),

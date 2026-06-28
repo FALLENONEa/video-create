@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import type { VideoClip, BgmClip, EditorConfig } from '@/features/video-editor/types/editor.types'
-import { calculateTimelineDuration } from '@/features/video-editor/utils/time-utils'
+import { calculateTimelineDuration, getTransitionOverlapFrames } from '@/features/video-editor/utils/time-utils'
 import { downloadToFile, runFfmpeg, runFfprobe, type ProbeResult } from './ffmpeg-runner'
 import { createScopedLogger } from '@/lib/logging/core'
 
@@ -336,17 +336,14 @@ async function stageNormalize(
   return normFiles
 }
 
-/** 转场规格。none/无转场退化为 1 帧 fade（视觉上等同硬切），保证 xfade 链不断。 */
-function transitionSpec(clip: VideoClip, fps: number): { type: string; durSec: number } {
-  const minOverlap = 1 / fps
+/** 转场规格。无转场时由 stageConcat 退化为普通 concat。 */
+function transitionSpec(clip: VideoClip): { type: string } {
   const t = clip.transition
   if (!t || t.type === 'none' || t.durationInFrames <= 0) {
-    return { type: 'fade', durSec: minOverlap }
+    return { type: 'fade' }
   }
   const map: Record<string, string> = { dissolve: 'fade', fade: 'fadeblack', slide: 'slideleft' }
-  // 磁性时间线语义：转场重叠 = floor(durationInFrames/2) 帧
-  const overlapFrames = Math.max(1, Math.floor(t.durationInFrames / 2))
-  return { type: map[t.type] ?? 'fade', durSec: overlapFrames / fps }
+  return { type: map[t.type] ?? 'fade' }
 }
 
 /** 阶段 3：xfade/acrossfade 串联所有标准化片段。单片段直接返回。 */
@@ -373,16 +370,23 @@ async function stageConcat(
   let curLen = framesToSec(clips[0].durationInFrames, fps)
 
   for (let i = 1; i < normFiles.length; i++) {
-    const spec = transitionSpec(clips[i - 1], fps)
-    const offset = Math.max(0, curLen - spec.durSec)
+    const spec = transitionSpec(clips[i - 1])
+    const overlapFrames = getTransitionOverlapFrames(clips, i - 1, Math.round(curLen * fps))
+    const curClipSec = framesToSec(clips[i].durationInFrames, fps)
+    const durSec = overlapFrames / fps
     const isLast = i === normFiles.length - 1
     const vLabel = isLast ? 'vout' : `vt${i}`
     const aLabel = isLast ? 'aout' : `at${i}`
-    parts.push(`[${prevV}][${i}:v]xfade=transition=${spec.type}:duration=${spec.durSec}:offset=${offset}[${vLabel}]`)
-    parts.push(`[${prevA}][${i}:a]acrossfade=d=${spec.durSec}:c1=tri:c2=tri[${aLabel}]`)
+    if (durSec > 0) {
+      const offset = Math.max(0, curLen - durSec)
+      parts.push(`[${prevV}][${i}:v]xfade=transition=${spec.type}:duration=${durSec}:offset=${offset}[${vLabel}]`)
+      parts.push(`[${prevA}][${i}:a]acrossfade=d=${durSec}:c1=tri:c2=tri[${aLabel}]`)
+    } else {
+      parts.push(`[${prevV}][${prevA}][${i}:v][${i}:a]concat=n=2:v=1:a=1[${vLabel}][${aLabel}]`)
+    }
     prevV = vLabel
     prevA = aLabel
-    curLen = curLen + framesToSec(clips[i].durationInFrames, fps) - spec.durSec
+    curLen = curLen + curClipSec - durSec
   }
 
   const args = [

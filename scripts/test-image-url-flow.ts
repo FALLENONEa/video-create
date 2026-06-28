@@ -6,7 +6,7 @@
 import { config } from 'dotenv'
 config()
 
-import { uploadObject, getSignedUrl, extractStorageKey, toFetchableUrl } from '../src/lib/storage'
+import { uploadObject, getSignedUrl, extractStorageKey } from '../src/lib/storage'
 import { keyToSignedUrl, addSignedUrlToLocation } from '../src/lib/storage'
 import { encodeImageUrls, decodeImageUrlsFromDb } from '../src/lib/contracts/image-urls-contract'
 import { randomUUID } from 'crypto'

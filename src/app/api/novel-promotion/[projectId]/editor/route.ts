@@ -23,6 +23,15 @@ export const GET = apiHandler(async (
         throw new ApiError('INVALID_PARAMS')
     }
 
+    // 🔐 校验该剧集确属当前项目，防止用他人 episodeId 越权读取工程
+    const episode = await prisma.novelPromotionEpisode.findFirst({
+        where: { id: episodeId, novelPromotionProject: { projectId } },
+        select: { id: true }
+    })
+    if (!episode) {
+        throw new ApiError('NOT_FOUND')
+    }
+
     // 查找编辑器项目
     const editorProject = await prisma.videoEditorProject.findUnique({
         where: { episodeId }
@@ -80,10 +89,16 @@ export const PUT = apiHandler(async (
         where: { episodeId },
         create: {
             episodeId,
-            projectData: JSON.stringify(projectData)
+            projectData: JSON.stringify(projectData),
+            renderStatus: null,
+            renderTaskId: null,
+            outputUrl: null
         },
         update: {
             projectData: JSON.stringify(projectData),
+            renderStatus: null,
+            renderTaskId: null,
+            outputUrl: null,
             updatedAt: new Date()
         }
     })
@@ -91,6 +106,8 @@ export const PUT = apiHandler(async (
     return NextResponse.json({
         success: true,
         id: editorProject.id,
+        renderStatus: editorProject.renderStatus,
+        outputUrl: editorProject.outputUrl,
         updatedAt: editorProject.updatedAt
     })
 })
@@ -115,7 +132,16 @@ export const DELETE = apiHandler(async (
         throw new ApiError('INVALID_PARAMS')
     }
 
-    await prisma.videoEditorProject.delete({
+    // 🔐 校验该剧集确属当前项目，防止用他人 episodeId 越权删除
+    const episode = await prisma.novelPromotionEpisode.findFirst({
+        where: { id: episodeId, novelPromotionProject: { projectId } },
+        select: { id: true }
+    })
+    if (!episode) {
+        throw new ApiError('NOT_FOUND')
+    }
+
+    await prisma.videoEditorProject.deleteMany({
         where: { episodeId }
     })
 

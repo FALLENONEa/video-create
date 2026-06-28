@@ -1,7 +1,7 @@
-import type { AssistantRuntimeContext, AssistantSkillDefinition } from '../types'
+import type { AssistantSkillDefinition } from '../types'
 import { renderAssistantSystemPrompt } from '../system-prompts'
 
-function buildTutorialPrompt(_ctx: AssistantRuntimeContext): string {
+function buildTutorialPrompt(): string {
   return renderAssistantSystemPrompt('tutorial')
 }
 

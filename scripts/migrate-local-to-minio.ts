@@ -9,7 +9,6 @@
 import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { createReadStream } from 'fs'
 
 // ==================== 配置 ====================
 const LOCAL_DIR = process.env.LOCAL_UPLOAD_DIR || './data/uploads'

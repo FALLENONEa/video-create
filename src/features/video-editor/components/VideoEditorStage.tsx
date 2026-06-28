@@ -85,9 +85,12 @@ export function VideoEditorStage({
     const currentTime = framesToTime(timelineState.currentFrame, project.config.fps)
 
     const handleSave = async () => {
+        if (!isDirty && renderStatus === 'completed' && outputUrl) return
         try {
             await saveProject(project)
             markSaved()
+            setRenderStatus(null)
+            setOutputUrl(null)
             alert(t('editor.alert.saveSuccess'))
         } catch (error) {
             _ulogError('Save failed:', error)
@@ -96,6 +99,7 @@ export function VideoEditorStage({
     }
 
     const handleExport = async () => {
+        if (project.timeline.length === 0) return
         try {
             await saveProject(project)
             markSaved()
@@ -158,7 +162,7 @@ export function VideoEditorStage({
                 ) : (
                     <button
                         onClick={handleExport}
-                        disabled={renderStatus === 'pending' || renderStatus === 'rendering'}
+                        disabled={renderStatus === 'pending' || renderStatus === 'rendering' || project.timeline.length === 0}
                         className="glass-btn-base glass-btn-tone-success px-4 py-2"
                     >
                         {(renderStatus === 'pending' || renderStatus === 'rendering')

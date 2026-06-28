@@ -53,7 +53,10 @@ vi.mock('@/lib/prompt-i18n', () => ({
     NP_CHARACTER_MODIFY: 'np_character_modify',
     NP_LOCATION_MODIFY: 'np_location_modify',
   },
-  buildPrompt: vi.fn((_args: unknown) => 'final-prompt'),
+  buildPrompt: vi.fn((args: unknown) => {
+    void args
+    return 'final-prompt'
+  }),
 }))
 
 import { handleAssetHubAIModifyTask } from '@/lib/workers/handlers/asset-hub-ai-modify'

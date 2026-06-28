@@ -21,6 +21,8 @@ interface PanelData {
     duration?: number
 }
 
+const DEFAULT_CLIP_DURATION_SEC = 5
+
 /**
  * 从已生成的视频面板创建编辑器项目
  */
@@ -40,7 +42,7 @@ export function createProjectFromPanels(
         return {
             id: `clip_${panel.id || panel.storyboardId}_${panel.panelIndex ?? index}`,
             src: panel.videoUrl!,
-            durationInFrames: Math.round((panel.duration || 3) * 30), // 默认 3 秒，30fps
+            durationInFrames: Math.round((panel.duration || DEFAULT_CLIP_DURATION_SEC) * 30),
             attachment: {
                 audio: matchedVoice?.audioUrl ? {
                     src: matchedVoice.audioUrl,

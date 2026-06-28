@@ -13,7 +13,7 @@ interface EpisodeStagePayload {
 
 export function useWorkspaceEpisodeStageData() {
   const { projectId, episodeId } = useWorkspaceProvider()
-  const { data: episodeData } = useEpisodeData(projectId, episodeId || null)
+  const { data: episodeData, isLoading } = useEpisodeData(projectId, episodeId || null)
   const payload = episodeData as EpisodeStagePayload | null
 
   return {
@@ -21,5 +21,6 @@ export function useWorkspaceEpisodeStageData() {
     novelText: payload?.novelText || '',
     clips: payload?.clips || [],
     storyboards: payload?.storyboards || [],
+    isLoading,
   }
 }

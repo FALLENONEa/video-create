@@ -11,7 +11,7 @@ import { buildAuthenticatedHomeTarget } from '@/lib/home/default-route'
 
 export default function Home() {
   const t = useTranslations('landing')
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
 
   // 已登录用户自动跳转到 home

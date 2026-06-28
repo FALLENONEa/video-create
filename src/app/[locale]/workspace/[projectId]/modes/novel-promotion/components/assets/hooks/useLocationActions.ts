@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
  * 🔥 V6.5 重构：直接订阅 useProjectAssets，消除 props drilling
  */
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { isAbortError } from '@/lib/error-utils'
 import {
     useAssetActions,
@@ -46,7 +46,10 @@ export function useLocationActions({
     const t = useTranslations('assets')
     // 🔥 直接订阅缓存 - 消除 props drilling
     const { data: assets } = useProjectAssets(projectId)
-    const locations = assetType === 'prop' ? assets?.props ?? [] : assets?.locations ?? []
+    const locations = useMemo(
+        () => assetType === 'prop' ? assets?.props ?? [] : assets?.locations ?? [],
+        [assetType, assets?.locations, assets?.props],
+    )
     const propActions = useAssetActions({ scope: 'project', projectId, kind: 'prop' })
     const assetKey = assetType === 'prop' ? 'prop' : 'location'
 
@@ -106,7 +109,7 @@ export function useLocationActions({
             }
             showToast?.(t('image.confirmFailed', { error: getErrorMessage(error, t('common.unknownError')) }), 'error')
         }
-    }, [assetType, confirmLocationSelectionMutation, showToast, t])
+    }, [confirmLocationSelectionMutation, showToast, t])
 
     // 单张重新生成场景图片 - 🔥 V6.7: 使用mutation hook
     const handleRegenerateSingleLocation = useCallback(async (locationId: string, imageIndex: number) => {

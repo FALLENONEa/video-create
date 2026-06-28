@@ -7,7 +7,10 @@ describe('bailian voice design', () => {
   })
 
   it('uses qwen3-tts-vd-2026-01-26 as target model', async () => {
-    const fetchMock = vi.fn(async (_input: unknown, _init?: unknown) => ({
+    const fetchMock = vi.fn(async (input: unknown, init?: unknown) => {
+      void input
+      void init
+      return {
       ok: true,
       json: async () => ({
         output: {
@@ -34,7 +37,8 @@ describe('bailian voice design', () => {
       arrayBuffer: async () => new ArrayBuffer(0),
       blob: async () => new Blob(),
       formData: async () => new FormData(),
-    }))
+    }
+    })
     vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch)
 
     await createVoiceDesign({

@@ -7,7 +7,6 @@ config()
 
 import { uploadObject, getSignedObjectUrl } from '../src/lib/storage'
 import { randomUUID } from 'crypto'
-import http from 'http'
 
 async function testSignApi() {
   console.log('🧪 测试 /api/storage/sign API...\n')

@@ -26,7 +26,8 @@ function normalizeAssistantContext(raw: unknown): AssistantContext {
 
 async function toModelMessages(messages: UIMessage[]): Promise<Awaited<ReturnType<typeof convertToModelMessages>>> {
   const withoutIds = messages.map((message) => {
-    const { id: _id, ...rest } = message
+    const { id, ...rest } = message
+    void id
     return rest
   })
   return await convertToModelMessages(withoutIds)

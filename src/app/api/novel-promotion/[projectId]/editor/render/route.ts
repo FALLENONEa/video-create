@@ -27,6 +27,15 @@ export const POST = apiHandler(async (
   if (isErrorResponse(authResult)) return authResult
   const { session } = authResult
 
+  // 🔐 校验该剧集确属当前项目，防止用他人 episodeId 越权触发渲染
+  const episode = await prisma.novelPromotionEpisode.findFirst({
+    where: { id: episodeId, novelPromotionProject: { projectId } },
+    select: { id: true },
+  })
+  if (!episode) {
+    throw new ApiError('NOT_FOUND')
+  }
+
   const editorProject = await prisma.videoEditorProject.findUnique({ where: { episodeId } })
   if (!editorProject) {
     throw new ApiError('NOT_FOUND')
@@ -71,6 +80,15 @@ export const GET = apiHandler(async (
   const episodeId = request.nextUrl.searchParams.get('episodeId')
   if (!episodeId) {
     throw new ApiError('INVALID_PARAMS')
+  }
+
+  // 🔐 校验该剧集确属当前项目，防止用他人 episodeId 越权查询渲染状态
+  const episode = await prisma.novelPromotionEpisode.findFirst({
+    where: { id: episodeId, novelPromotionProject: { projectId } },
+    select: { id: true },
+  })
+  if (!episode) {
+    throw new ApiError('NOT_FOUND')
   }
 
   const editorProject = await prisma.videoEditorProject.findUnique({ where: { episodeId } })

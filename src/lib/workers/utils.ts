@@ -424,40 +424,9 @@ export async function resolveVideoSourceFromGeneration(
     }
     pollProgress?: { start?: number; end?: number }
   },
-): Promise<{ url: string; actualVideoTokens?: number; downloadHeaders?: Record<string, string> }> {
+): Promise<{ url: string; actualVideoTokens?: number; downloadHeaders?: Record<string, string>; durationSec?: number }> {
   const logger = scopedWorkerUtilLogger(job, 'worker.video.generate_source')
   const startedAt = Date.now()
-
-  // 服务重启续接：若 DB 中已有 externalId，直接恢复轮询，不重新提交外部 API（避免重复扣费）
-  const resumeExternalId = await getTaskExistingExternalId(job.data.taskId)
-  if (resumeExternalId) {
-    logger.info({
-      message: 'video source generation resumed from existing external id',
-      details: { externalId: resumeExternalId, model: params.modelId },
-    })
-    const polled = await waitExternalResult(job, resumeExternalId, params.userId, {
-      progressStart: params.pollProgress?.start ?? 45,
-      progressEnd: params.pollProgress?.end ?? 94,
-    })
-    logger.info({
-      message: 'video source generation completed (resumed)',
-      durationMs: Date.now() - startedAt,
-      details: { externalId: resumeExternalId },
-    })
-    return {
-      url: polled.url,
-      ...(typeof polled.actualVideoTokens === 'number' ? { actualVideoTokens: polled.actualVideoTokens } : {}),
-      ...(polled.downloadHeaders ? { downloadHeaders: polled.downloadHeaders } : {}),
-    }
-  }
-
-  logger.info({
-    message: 'video source generation started',
-    details: {
-      model: params.modelId,
-    },
-  })
-
   const runtimeSelections: Record<string, string | number | boolean> = {}
   if (typeof params.options?.duration === 'number') {
     runtimeSelections.duration = params.options.duration
@@ -482,7 +451,6 @@ export async function resolveVideoSourceFromGeneration(
     modelKey: params.modelId,
     runtimeSelections,
   })
-
   const providerCapabilityOptions: Record<string, string | number | boolean> = { ...capabilityOptions }
   delete providerCapabilityOptions.generationMode
   const providerRequestOptions: Record<string, string | number | boolean> = {}
@@ -490,13 +458,48 @@ export async function resolveVideoSourceFromGeneration(
     if (key === 'generationMode' || value === undefined) continue
     providerRequestOptions[key] = value
   }
+  const effectiveOptions = {
+    ...providerRequestOptions,
+    ...providerCapabilityOptions,
+  }
+  const durationSec = typeof effectiveOptions.duration === 'number' && Number.isFinite(effectiveOptions.duration) && effectiveOptions.duration > 0
+    ? effectiveOptions.duration
+    : undefined
+
+  // 服务重启续接：若 DB 中已有 externalId，直接恢复轮询，不重新提交外部 API（避免重复扣费）
+  const resumeExternalId = await getTaskExistingExternalId(job.data.taskId)
+  if (resumeExternalId) {
+    logger.info({
+      message: 'video source generation resumed from existing external id',
+      details: { externalId: resumeExternalId, model: params.modelId },
+    })
+    const polled = await waitExternalResult(job, resumeExternalId, params.userId, {
+      progressStart: params.pollProgress?.start ?? 45,
+      progressEnd: params.pollProgress?.end ?? 94,
+    })
+    logger.info({
+      message: 'video source generation completed (resumed)',
+      durationMs: Date.now() - startedAt,
+      details: { externalId: resumeExternalId },
+    })
+    return {
+      url: polled.url,
+      ...(durationSec ? { durationSec } : {}),
+      ...(typeof polled.actualVideoTokens === 'number' ? { actualVideoTokens: polled.actualVideoTokens } : {}),
+      ...(polled.downloadHeaders ? { downloadHeaders: polled.downloadHeaders } : {}),
+    }
+  }
+
+  logger.info({
+    message: 'video source generation started',
+    details: {
+      model: params.modelId,
+    },
+  })
 
   const result = await withLogContext(
     { projectId: job.data.projectId, taskId: job.data.taskId, userId: params.userId },
-    () => generateVideo(params.userId, params.modelId, params.imageUrl, {
-      ...providerRequestOptions,
-      ...providerCapabilityOptions,
-    }),
+    () => generateVideo(params.userId, params.modelId, params.imageUrl, effectiveOptions),
   )
   if (!result.success) {
     throw new Error(result.error || 'Video generation failed')
@@ -507,7 +510,10 @@ export async function resolveVideoSourceFromGeneration(
       message: 'video source generation completed',
       durationMs: Date.now() - startedAt,
     })
-    return { url: result.videoUrl }
+    return {
+      url: result.videoUrl,
+      ...(durationSec ? { durationSec } : {}),
+    }
   }
 
   const externalId = normalizeExternalId(result, 'VIDEO')
@@ -528,6 +534,7 @@ export async function resolveVideoSourceFromGeneration(
   })
   return {
     url: polled.url,
+    ...(durationSec ? { durationSec } : {}),
     ...(typeof polled.actualVideoTokens === 'number' ? { actualVideoTokens: polled.actualVideoTokens } : {}),
     ...(polled.downloadHeaders ? { downloadHeaders: polled.downloadHeaders } : {}),
   }

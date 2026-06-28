@@ -40,13 +40,15 @@ export const RemotionPreview: React.FC<RemotionPreviewProps> = ({
     useEffect(() => {
         const player = playerRef.current
         if (!player) return
+        if (playing) return
 
         // 避免循环更新：只有当帧差距大于 1 时才 seek
-        if (Math.abs(currentFrame - lastSyncedFrame.current) > 1) {
-            player.seekTo(currentFrame)
-            lastSyncedFrame.current = currentFrame
+        const nextFrame = Math.max(0, Math.min(currentFrame, Math.max(0, totalDuration - 1)))
+        if (Math.abs(nextFrame - lastSyncedFrame.current) > 1) {
+            player.seekTo(nextFrame)
+            lastSyncedFrame.current = nextFrame
         }
-    }, [currentFrame])
+    }, [currentFrame, playing, totalDuration])
 
     // 当 playing 状态改变时，控制 Player 播放/暂停
     useEffect(() => {

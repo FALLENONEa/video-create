@@ -28,13 +28,18 @@ export function resolveFfprobePath(): string {
   const fromEnv = (process.env.FFPROBE_PATH || '').trim()
   if (fromEnv) return fromEnv
   const ffmpegPath = (process.env.FFMPEG_PATH || '').trim()
-  if (ffmpegPath) return path.join(path.dirname(ffmpegPath), 'ffprobe')
+  if (ffmpegPath) {
+    // 保留 ffmpeg 的扩展名（Windows 的 .exe），否则 spawn 在 Windows 下会 ENOENT
+    const ext = path.extname(ffmpegPath)
+    return path.join(path.dirname(ffmpegPath), `ffprobe${ext}`)
+  }
   return 'ffprobe'
 }
 
 /** 下载远程 URL 到本地文件（流式）。用于把 COS presigned URL 落地到 workDir。 */
 export async function downloadToFile(url: string, dest: string): Promise<void> {
-  const res = await fetch(url, { redirect: 'follow' })
+  // 5 分钟超时，避免 COS 卡死导致渲染任务永久挂起
+  const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(300_000) })
   if (!res.ok || !res.body) {
     throw new Error(`VIDEO_RENDER_DOWNLOAD_FAILED: ${res.status} ${url}`)
   }
@@ -52,7 +57,7 @@ export async function runFfprobe(file: string): Promise<ProbeResult> {
   }
   const vStream = data.streams?.find((s) => s.codec_type === 'video')
   const aStream = data.streams?.find((s) => s.codec_type === 'audio')
-  const durationSec = parseFloat(data.format?.duration || (vStream ? '0' : '0')) || 0
+  const durationSec = parseFloat(data.format?.duration || '0') || 0
   const fps = parseFps(vStream?.r_frame_rate)
   return {
     durationSec,

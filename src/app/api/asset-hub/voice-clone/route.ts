@@ -59,13 +59,14 @@ export const POST = apiHandler(async (request: NextRequest) => {
     }
 
     // 注册音色（先注册，成功后再落库，避免脏数据）
-    const { apiKey } = await getProviderConfig(session.user.id, 'bailian')
+    const { apiKey, baseUrl } = await getProviderConfig(session.user.id, 'bailian')
     const enrollMimeType = resolveEnrollMimeType(file)
     const enrolled = await bailianEnrollVoice({
         audioBuffer: buffer,
         mimeType: enrollMimeType,
         preferredName: preferredName.trim() || undefined,
         apiKey,
+        baseUrl,
     })
     if (!enrolled.success || !enrolled.voiceId) {
         throw new ApiError('EXTERNAL_ERROR', { message: enrolled.error || '声音复刻注册失败' })

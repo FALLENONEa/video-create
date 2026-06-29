@@ -304,14 +304,15 @@ export async function generateVoiceLine(params: {
         throw new Error('VOICE_MODEL_VOICE_MISMATCH: 声音复刻音色需配合 Qwen3 TTS 声音复刻模型使用')
       }
     }
-    const { apiKey } = await getProviderConfig(params.userId, audioSelection.provider)
+    const { apiKey, baseUrl } = await getProviderConfig(params.userId, audioSelection.provider)
     if (audioSelection.modelId === BAILIAN_VC_MODEL_ID) {
-      // 声音复刻：用注册得到的复刻 voiceId 合成（VC payload 仅 text+voice，无 language_type）
+      // 声音复刻：用注册得到的复刻 voiceId 合成，走工作空间作用域 host（与注册一致）
       const vcResult = await bailianSynthesizeClonedVoice({
         text,
         voiceId: voiceBinding.voiceId,
         modelId: audioSelection.modelId,
         apiKey,
+        baseUrl,
       })
       if (!vcResult.success || !vcResult.audioData) {
         throw new Error(normalizeBailianVoiceGenerationError(vcResult.error))

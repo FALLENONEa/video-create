@@ -20,11 +20,20 @@ import {
 
 export const BAILIAN_VC_MODEL_ID = 'qwen3-tts-vc-2026-01-22'
 const BAILIAN_VOICE_ENROLL_MODEL = 'qwen-voice-enrollment'
-const BAILIAN_VOICE_ENROLL_ENDPOINT =
-  'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization'
-const BAILIAN_VC_SYNTH_ENDPOINT =
-  'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
+// Qwen-TTS 声音复刻必须走「工作空间作用域」host：{WorkspaceId}.cn-beijing.maas.aliyuncs.com。
+// 通用域名 dashscope.aliyuncs.com 不认 customization 注册路径，会返回 InvalidParameter（400）。
+// 工作空间 host 由调用方从用户百炼 provider 配置的 baseUrl 注入；缺省回退 dashscope 仅作兜底（注册会失败并透传百炼错误）。
+const BAILIAN_DEFAULT_HOST = 'https://dashscope.aliyuncs.com'
+const BAILIAN_VOICE_ENROLL_PATH = '/api/v1/services/audio/tts/customization'
+const BAILIAN_VC_SYNTH_PATH = '/api/v1/services/aigc/multimodal-generation/generation'
 const BAILIAN_VC_MAX_CHARS = 600
+
+function resolveBailianHost(baseUrl?: string): string {
+  let host = typeof baseUrl === 'string' ? baseUrl.trim() : ''
+  // 去末尾斜杠；兼容用户误填 OpenAI 风格的 /api/v1 后缀（百炼工作空间 host 不带该后缀）
+  host = host.replace(/\/+$/, '').replace(/\/api\/v\d+$/i, '')
+  return host || BAILIAN_DEFAULT_HOST
+}
 
 function readTrimmedString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -44,6 +53,8 @@ export interface BailianVoiceEnrollInput {
   /** 绑定的合成模型，必须与后续合成模型一致，默认 qwen3-tts-vc */
   targetModel?: string
   apiKey: string
+  /** 百炼工作空间作用域 host（{WorkspaceId}.cn-beijing.maas.aliyuncs.com）；缺省回退 dashscope 通用域名 */
+  baseUrl?: string
 }
 
 export interface BailianVoiceEnrollResult {
@@ -70,8 +81,9 @@ export async function bailianEnrollVoice(
   const preferredName = readTrimmedString(input.preferredName) || `clone_${Date.now()}`
   const dataUri = `data:${mimeType};base64,${audioBuffer.toString('base64')}`
 
+  const enrollEndpoint = `${resolveBailianHost(input.baseUrl)}${BAILIAN_VOICE_ENROLL_PATH}`
   try {
-    const response = await fetch(BAILIAN_VOICE_ENROLL_ENDPOINT, {
+    const response = await fetch(enrollEndpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -96,9 +108,10 @@ export async function bailianEnrollVoice(
     if (!response.ok) {
       const code = readTrimmedString(data?.code)
       const message = readTrimmedString(data?.message)
+      const detail = [code, message].filter(Boolean).join(' - ')
       return {
         success: false,
-        error: `BAILIAN_VOICE_ENROLL_FAILED(${response.status}): ${code || message || 'unknown error'}`,
+        error: `BAILIAN_VOICE_ENROLL_FAILED(${response.status}): ${detail || 'unknown error'}`,
       }
     }
     const voiceId = readTrimmedString(data?.output?.voice)
@@ -125,6 +138,8 @@ export interface BailianVCSynthInput {
   /** 合成语种，建议与文本一致以保证发音/语调，默认 Chinese（与 qwen3-tts 对齐） */
   languageType?: string
   apiKey: string
+  /** 百炼工作空间作用域 host；复刻合成同样建议走工作空间 host，与注册一致 */
+  baseUrl?: string
 }
 
 export interface BailianVCSynthResult {
@@ -168,8 +183,10 @@ async function synthSegment(params: {
   modelId: string
   languageType: string
   apiKey: string
+  baseUrl?: string
 }): Promise<{ buffer: Buffer; url?: string; requestId?: string }> {
-  const response = await fetch(BAILIAN_VC_SYNTH_ENDPOINT, {
+  const synthEndpoint = `${resolveBailianHost(params.baseUrl)}${BAILIAN_VC_SYNTH_PATH}`
+  const response = await fetch(synthEndpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${params.apiKey}`,
@@ -190,7 +207,8 @@ async function synthSegment(params: {
   if (!response.ok) {
     const code = readTrimmedString(data?.code)
     const message = readTrimmedString(data?.message)
-    throw new Error(`BAILIAN_VC_FAILED(${response.status}): ${code || message || 'unknown error'}`)
+    const detail = [code, message].filter(Boolean).join(' - ')
+    throw new Error(`BAILIAN_VC_FAILED(${response.status}): ${detail || 'unknown error'}`)
   }
   const audio = data?.output?.audio
   if (!audio) {
@@ -215,6 +233,7 @@ export async function bailianSynthesizeClonedVoice(
   const voiceId = readTrimmedString(input.voiceId)
   const modelId = readTrimmedString(input.modelId) || BAILIAN_VC_MODEL_ID
   const languageType = readTrimmedString(input.languageType) || 'Chinese'
+  const baseUrl = readTrimmedString(input.baseUrl) || undefined
 
   if (!apiKey) return { success: false, error: 'BAILIAN_API_KEY_REQUIRED' }
   if (!text) return { success: false, error: 'BAILIAN_VC_TEXT_REQUIRED' }
@@ -230,7 +249,7 @@ export async function bailianSynthesizeClonedVoice(
     let firstUrl: string | undefined
     let lastRequestId: string | undefined
     for (const segment of segments) {
-      const r = await synthSegment({ text: segment, voiceId, modelId, languageType, apiKey })
+      const r = await synthSegment({ text: segment, voiceId, modelId, languageType, apiKey, baseUrl })
       buffers.push(r.buffer)
       if (!firstUrl && r.url) firstUrl = r.url
       if (r.requestId) lastRequestId = r.requestId

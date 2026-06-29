@@ -91,7 +91,7 @@ export default function VoicePreviewSection({ runtime }: VoicePreviewSectionProp
         />
       )}
 
-      {mode === 'upload' && (
+      {(mode === 'upload' || mode === 'clone') && (
         <>
           {!uploadFile ? (
             <div
@@ -105,11 +105,11 @@ export default function VoicePreviewSection({ runtime }: VoicePreviewSectionProp
                 }`}
             >
               <div className="text-sm text-[var(--glass-text-secondary)] mb-2">{tvCreate('dropOrClick')}</div>
-              <div className="text-xs text-[var(--glass-text-tertiary)]">{tvCreate('supportedFormats')}</div>
+              <div className="text-xs text-[var(--glass-text-tertiary)]">{mode === 'clone' ? tvCreate('cloneFormats') : tvCreate('supportedFormats')}</div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac"
+                accept={mode === 'clone' ? 'audio/mpeg,audio/wav,.mp3,.wav,.m4a' : 'audio/*,.mp3,.wav,.ogg,.m4a,.aac'}
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (file) handleFileSelect(file)
@@ -160,7 +160,7 @@ export default function VoicePreviewSection({ runtime }: VoicePreviewSectionProp
         </>
       )}
 
-      {mode === 'upload' && error && (
+      {(mode === 'upload' || mode === 'clone') && error && (
         <div className="text-sm text-[var(--glass-tone-danger-fg)] bg-[var(--glass-tone-danger-bg)] px-3 py-2 rounded-lg">
           {error}
         </div>

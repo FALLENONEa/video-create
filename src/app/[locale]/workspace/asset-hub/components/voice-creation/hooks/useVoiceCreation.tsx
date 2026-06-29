@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import {
+    useCloneAssetHubVoice,
     useDesignAssetHubVoice,
     useSaveDesignedAssetHubVoice,
     useUploadAssetHubVoice,
@@ -23,7 +24,7 @@ export interface VoiceCreationModalShellProps {
     initialVoiceName?: string
 }
 
-type CreationMode = 'design' | 'upload'
+type CreationMode = 'design' | 'upload' | 'clone'
 
 export function useVoiceCreation({ isOpen, folderId, onClose, onSuccess, initialVoiceName }: VoiceCreationModalShellProps) {
     const t = useTranslations('common')
@@ -72,6 +73,7 @@ export function useVoiceCreation({ isOpen, folderId, onClose, onSuccess, initial
     const designVoiceMutation = useDesignAssetHubVoice()
     const saveDesignedMutation = useSaveDesignedAssetHubVoice()
     const uploadVoiceMutation = useUploadAssetHubVoice()
+    const cloneVoiceMutation = useCloneAssetHubVoice()
 
     // 生成音色
     const handleGenerate = async () => {
@@ -235,11 +237,20 @@ export function useVoiceCreation({ isOpen, folderId, onClose, onSuccess, initial
         setError(null)
 
         try {
-            await uploadVoiceMutation.mutateAsync({
-                uploadFile,
-                voiceName: voiceName.trim(),
-                folderId
-            })
+            // clone 复用上传 UI（文件选择+名称），提交时分流到声音复刻注册接口
+            if (mode === 'clone') {
+                await cloneVoiceMutation.mutateAsync({
+                    uploadFile,
+                    voiceName: voiceName.trim(),
+                    folderId,
+                })
+            } else {
+                await uploadVoiceMutation.mutateAsync({
+                    uploadFile,
+                    voiceName: voiceName.trim(),
+                    folderId
+                })
+            }
 
             onSuccess()
             handleClose()

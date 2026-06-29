@@ -40,9 +40,10 @@ export default function VoiceCreationForm({ runtime, children }: VoiceCreationFo
             options={[
               { value: 'design' as const, label: tvCreate('aiDesignMode') },
               { value: 'upload' as const, label: tvCreate('uploadMode') },
+              { value: 'clone' as const, label: tvCreate('cloneMode') },
             ]}
             value={mode}
-            onChange={(val) => handleModeChange(val as 'design' | 'upload')}
+            onChange={(val) => handleModeChange(val as 'design' | 'upload' | 'clone')}
           />
         </div>
       </div>

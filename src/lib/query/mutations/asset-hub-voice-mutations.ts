@@ -117,3 +117,32 @@ export function useUploadAssetHubVoice() {
     onSuccess: invalidateVoices,
   })
 }
+
+export function useCloneAssetHubVoice() {
+  const queryClient = useQueryClient()
+  const invalidateVoices = () => invalidateGlobalVoices(queryClient)
+
+  return useMutation({
+    mutationFn: async (payload: {
+      uploadFile: File
+      voiceName: string
+      folderId: string | null
+      preferredName?: string
+    }) => {
+      const formData = new FormData()
+      formData.append('file', payload.uploadFile)
+      formData.append('name', payload.voiceName)
+      if (payload.folderId) {
+        formData.append('folderId', payload.folderId)
+      }
+      if (payload.preferredName) {
+        formData.append('preferredName', payload.preferredName)
+      }
+      return await requestJsonWithError('/api/asset-hub/voice-clone', {
+        method: 'POST',
+        body: formData,
+      }, '声音复刻失败')
+    },
+    onSuccess: invalidateVoices,
+  })
+}

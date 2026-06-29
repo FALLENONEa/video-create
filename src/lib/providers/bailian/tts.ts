@@ -63,7 +63,7 @@ function readTrimmedString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function getWavDurationFromBuffer(buffer: Buffer): number {
+export function getWavDurationFromBuffer(buffer: Buffer): number {
   try {
     const decoded = decodeWavBuffer(buffer)
     if (decoded.format.byteRate <= 0) return 0
@@ -152,7 +152,7 @@ function isWavFormatEqual(left: WavFormat, right: WavFormat): boolean {
     && left.bitsPerSample === right.bitsPerSample
 }
 
-function mergeWavBuffers(buffers: Buffer[]): Buffer {
+export function mergeWavBuffers(buffers: Buffer[]): Buffer {
   if (buffers.length === 0) {
     throw new Error('BAILIAN_TTS_SEGMENTS_EMPTY')
   }
@@ -177,7 +177,7 @@ const SPLIT_HINT_CHARS = new Set([
   '\n',
 ])
 
-function splitTextByLimit(text: string, maxChars: number): string[] {
+export function splitTextByLimit(text: string, maxChars: number): string[] {
   const trimmed = text.trim()
   if (!trimmed) return []
   const chars = Array.from(trimmed)

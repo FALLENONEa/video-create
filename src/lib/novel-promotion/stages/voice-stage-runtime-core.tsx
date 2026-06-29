@@ -60,9 +60,11 @@ export function useVoiceStageRuntime({
   const { data: assets } = useProjectAssets(projectId)
   const { data: episodeData } = useEpisodeData(projectId, episodeId)
   const { data: project } = useProjectData(projectId)
-  // 智谱 glm-tts-clone 不支持任何情绪控制（提示词会被原样朗读），选中智谱音频模型时整个情绪区置灰
-  const audioProvider = (project?.novelPromotionData?.audioModel ?? '').split('::')[0].toLowerCase()
-  const emotionSupported = audioProvider !== 'zhipu'
+  // 情绪控制仅 fal IndexTTS2 真正支持；智谱克隆、百炼声音复刻(qwen3-tts-vc)合成均不传情绪参数，选中时整个情绪区置灰
+  const audioModel = project?.novelPromotionData?.audioModel ?? ''
+  const audioProvider = audioModel.split('::')[0].toLowerCase()
+  const audioModelId = audioModel.split('::')[1]?.toLowerCase() ?? ''
+  const emotionSupported = audioProvider !== 'zhipu' && audioModelId !== 'qwen3-tts-vc-2026-01-22'
   const analyzeVoiceMutation = useAnalyzeProjectVoice(projectId)
   const generateVoiceMutation = useGenerateProjectVoice(projectId)
   const createVoiceLineMutation = useCreateProjectVoiceLine(projectId)

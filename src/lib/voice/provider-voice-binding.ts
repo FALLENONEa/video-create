@@ -41,6 +41,8 @@ export type BailianVoiceGenerationBinding = {
   provider: 'bailian'
   source: VoiceSource
   voiceId: string
+  /** 音色来源类型（qwen-designed | qwen-cloned | ...），用于校验模型-音色一致性；character 来源可能缺省 */
+  voiceType?: string
 }
 
 export type ZhipuVoiceGenerationBinding = {
@@ -175,12 +177,13 @@ function toFalBinding(source: VoiceSource, referenceAudioUrl: string | null): Fa
   }
 }
 
-function toBailianBinding(source: VoiceSource, voiceId: string | null): BailianVoiceGenerationBinding | null {
+function toBailianBinding(source: VoiceSource, voiceId: string | null, voiceType?: string): BailianVoiceGenerationBinding | null {
   if (!voiceId) return null
   return {
     provider: 'bailian',
     source,
     voiceId,
+    ...(voiceType ? { voiceType } : {}),
   }
 }
 
@@ -217,7 +220,7 @@ export function resolveVoiceBindingForProvider(params: {
   const fromCharacter = toBailianBinding('character', characterVoiceId)
   if (fromCharacter) return fromCharacter
   if (params.speakerVoice?.provider !== 'bailian') return null
-  return toBailianBinding('speaker', readTrimmedString(params.speakerVoice.voiceId))
+  return toBailianBinding('speaker', readTrimmedString(params.speakerVoice.voiceId), params.speakerVoice.voiceType)
 }
 
 export function hasVoiceBindingForProvider(params: {

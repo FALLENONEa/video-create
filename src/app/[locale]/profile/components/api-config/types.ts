@@ -191,6 +191,8 @@ export const PRESET_MODELS: PresetModel[] = [
     { modelId: 'fal-ai/index-tts-2/text-to-speech', name: 'IndexTTS 2', type: 'audio', provider: 'fal' },
     { modelId: 'qwen3-tts-vd-2026-01-26', name: 'Qwen3 TTS', type: 'audio', provider: 'bailian' },
     { modelId: 'qwen-voice-design', name: 'Qwen Voice Design', type: 'audio', provider: 'bailian' },
+    // 百炼声音复刻（参考音频 → 注册 voiceId → 合成，与 AI 设计音色并行）
+    { modelId: 'qwen3-tts-vc-2026-01-22', name: 'Qwen3 TTS 声音复刻', type: 'audio', provider: 'bailian' },
     // 智谱语音模型
     { modelId: 'glm-tts-clone', name: 'GLM-TTS-Clone', type: 'audio', provider: 'zhipu' },
     // 口型同步模型

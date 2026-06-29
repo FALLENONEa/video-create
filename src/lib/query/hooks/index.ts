@@ -55,6 +55,7 @@ export {
     useAiModifyPropDescription,
     useDesignAssetHubVoice,
     useSaveDesignedAssetHubVoice,
+    useCloneAssetHubVoice,
     useUploadAssetHubVoice,
     useAiDesignLocation,
     useCreateAssetHubLocation,

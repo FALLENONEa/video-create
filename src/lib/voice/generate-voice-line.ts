@@ -6,6 +6,7 @@ import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { extractStorageKey, getSignedUrl, toFetchableUrl, uploadObject } from '@/lib/storage'
 import { resolveStorageKeyFromMediaValue } from '@/lib/media/service'
 import { synthesizeWithBailianTTS } from '@/lib/providers/bailian'
+import { bailianSynthesizeClonedVoice, BAILIAN_VC_MODEL_ID } from '@/lib/providers/bailian/voice-clone'
 import { zhipuUploadFile, zhipuVoiceClone, zhipuDownloadFile } from '@/lib/zhipu-api'
 import {
   parseSpeakerVoiceMap,
@@ -292,21 +293,49 @@ export async function generateVoiceLine(params: {
       }
       throw new Error('请先为该发言人绑定百炼音色')
     }
-    const { apiKey } = await getProviderConfig(params.userId, audioSelection.provider)
-    const result = await synthesizeWithBailianTTS({
-      text,
-      voiceId: voiceBinding.voiceId,
-      modelId: audioSelection.modelId,
-      languageType: 'Chinese',
-    }, apiKey)
-    if (!result.success || !result.audioData) {
-      throw new Error(normalizeBailianVoiceGenerationError(result.error))
+    // 模型-音色一致性：复刻音色(voiceType 'qwen-cloned')只能配 vc 模型，设计音色只能配 qwen3-tts
+    const boundVoiceType = voiceBinding.voiceType
+    if (boundVoiceType) {
+      const isVcModel = audioSelection.modelId === BAILIAN_VC_MODEL_ID
+      if (isVcModel && boundVoiceType !== 'qwen-cloned') {
+        throw new Error('VOICE_MODEL_VOICE_MISMATCH: 当前音色不是声音复刻音色，无法用于 Qwen3 TTS 声音复刻模型')
+      }
+      if (!isVcModel && boundVoiceType === 'qwen-cloned') {
+        throw new Error('VOICE_MODEL_VOICE_MISMATCH: 声音复刻音色需配合 Qwen3 TTS 声音复刻模型使用')
+      }
     }
+    const { apiKey } = await getProviderConfig(params.userId, audioSelection.provider)
+    if (audioSelection.modelId === BAILIAN_VC_MODEL_ID) {
+      // 声音复刻：用注册得到的复刻 voiceId 合成（VC payload 仅 text+voice，无 language_type）
+      const vcResult = await bailianSynthesizeClonedVoice({
+        text,
+        voiceId: voiceBinding.voiceId,
+        modelId: audioSelection.modelId,
+        apiKey,
+      })
+      if (!vcResult.success || !vcResult.audioData) {
+        throw new Error(normalizeBailianVoiceGenerationError(vcResult.error))
+      }
+      generated = {
+        audioData: vcResult.audioData,
+        audioDuration: vcResult.audioDuration ?? getWavDurationFromBuffer(vcResult.audioData),
+      }
+    } else {
+      const result = await synthesizeWithBailianTTS({
+        text,
+        voiceId: voiceBinding.voiceId,
+        modelId: audioSelection.modelId,
+        languageType: 'Chinese',
+      }, apiKey)
+      if (!result.success || !result.audioData) {
+        throw new Error(normalizeBailianVoiceGenerationError(result.error))
+      }
 
-    const audioData = result.audioData
-    generated = {
-      audioData,
-      audioDuration: result.audioDuration ?? getWavDurationFromBuffer(audioData),
+      const audioData = result.audioData
+      generated = {
+        audioData,
+        audioDuration: result.audioDuration ?? getWavDurationFromBuffer(audioData),
+      }
     }
   } else if (providerKey === 'zhipu') {
     if (!voiceBinding || voiceBinding.provider !== 'zhipu') {

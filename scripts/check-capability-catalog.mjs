@@ -12,6 +12,8 @@ const CAPABILITY_NAMESPACE_ALLOWED_FIELDS = {
     'durationOptions',
     'fpsOptions',
     'resolutionOptions',
+    'qualityOptions',
+    'watermarkOptions',
     'firstlastframe',
     'supportGenerateAudio',
     'fieldI18n',

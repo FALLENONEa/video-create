@@ -14,6 +14,60 @@
     }
   },
   {
+    "modelType": "image",
+    "provider": "zhipu",
+    "modelId": "glm-image",
+    "capabilities": {
+      "image": {
+        "resolutionOptions": [
+          "1280x1280",
+          "1568x1056",
+          "1056x1568",
+          "1472x1088",
+          "1088x1472",
+          "1728x960",
+          "960x1728"
+        ]
+      }
+    }
+  },
+  {
+    "modelType": "image",
+    "provider": "zhipu",
+    "modelId": "cogview-4",
+    "capabilities": {
+      "image": {
+        "resolutionOptions": [
+          "1024x1024",
+          "768x1344",
+          "864x1152",
+          "1344x768",
+          "1152x864",
+          "1440x720",
+          "720x1440"
+        ]
+      }
+    }
+  },
+  {
+    "modelType": "image",
+    "provider": "zhipu",
+    "modelId": "cogview-3-flash",
+    "capabilities": {
+      "image": {
+        "resolutionOptions": [
+          "1024x1024",
+          "768x1344",
+          "864x1152",
+          "1344x768",
+          "1152x864",
+          "1440x720",
+          "720x1440"
+        ]
+      }
+    }
+  },
+  {
     "modelType": "video",
     "provider": "zhipu",
     "modelId": "cogvideox-3",

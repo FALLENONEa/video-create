@@ -39,6 +39,14 @@ function readTrimmedString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+/**
+ * 百炼 preferred_name 规则：仅允许数字、英文字母、下划线，长度 ≤ 16。
+ * 超出字符集或长度会被判 InvalidParameter，此处做兜底清洗（去非法字符 + 截断）。
+ */
+function sanitizePreferredName(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 16)
+}
+
 // ============================================================
 // 第一步：注册音色（上传参考音频 → 返回 voice_id）
 // ============================================================
@@ -78,7 +86,7 @@ export async function bailianEnrollVoice(
 
   const mimeType = readTrimmedString(input.mimeType) || 'audio/mpeg'
   const targetModel = readTrimmedString(input.targetModel) || BAILIAN_VC_MODEL_ID
-  const preferredName = readTrimmedString(input.preferredName) || `clone_${Date.now()}`
+  const preferredName = sanitizePreferredName(readTrimmedString(input.preferredName)) || `clone_${Date.now().toString(36)}`
   const dataUri = `data:${mimeType};base64,${audioBuffer.toString('base64')}`
 
   const enrollEndpoint = `${resolveBailianHost(input.baseUrl)}${BAILIAN_VOICE_ENROLL_PATH}`

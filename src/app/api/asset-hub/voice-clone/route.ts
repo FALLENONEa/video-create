@@ -100,6 +100,6 @@ export const POST = apiHandler(async (request: NextRequest) => {
 function resolveEnrollMimeType(file: File): string {
     const ext = file.name.split('.').pop()?.toLowerCase()
     if (file.type === 'audio/wav' || ext === 'wav') return 'audio/wav'
-    if (file.type === 'audio/m4a' || file.type === 'audio/x-m4a' || ext === 'm4a') return 'audio/m4a'
+    if (file.type === 'audio/m4a' || file.type === 'audio/x-m4a' || ext === 'm4a') return 'audio/mp4'
     return 'audio/mpeg'
 }

@@ -55,7 +55,7 @@ interface BailianVideoSubmitParameters {
 
 interface BailianVideoSubmitBody {
   model: string
-  input: Record<string, string>
+  input: Record<string, unknown>
   parameters?: BailianVideoSubmitParameters
 }
 
@@ -134,19 +134,32 @@ function buildSubmitRequest(params: BailianVideoGenerateParams): {
   const promptExtend = readOptionalBoolean(params.options.promptExtend)
   const duration = readOptionalPositiveInteger(params.options.duration, 'duration')
 
+  // wan2.7 系列：media 数组格式（首帧 / 首尾帧，统一多模态输入）；早期模型：img_url / first_frame_url
+  const isWan27MediaModel = modelId.startsWith('wan2.7')
+  const input: Record<string, unknown> = isWan27MediaModel
+    ? {
+        media: firstLastFrame
+          ? [
+              { type: 'first_frame', url: firstFrameUrl },
+              { type: 'last_frame', url: toFetchableUrl(lastFrameImageUrl) },
+            ]
+          : [{ type: 'first_frame', url: firstFrameUrl }],
+      }
+    : firstLastFrame
+      ? {
+          first_frame_url: firstFrameUrl,
+          last_frame_url: toFetchableUrl(lastFrameImageUrl),
+        }
+      : {
+          img_url: firstFrameUrl,
+        }
+  if (prompt) {
+    input.prompt = prompt
+  }
+
   const submitBody: BailianVideoSubmitBody = {
     model: modelId,
-    input: firstLastFrame
-      ? {
-        first_frame_url: firstFrameUrl,
-        last_frame_url: toFetchableUrl(lastFrameImageUrl),
-      }
-      : {
-        img_url: firstFrameUrl,
-      },
-  }
-  if (prompt) {
-    submitBody.input.prompt = prompt
+    input,
   }
 
   const submitParameters: BailianVideoSubmitParameters = {}
@@ -170,7 +183,8 @@ function buildSubmitRequest(params: BailianVideoGenerateParams): {
   }
 
   return {
-    endpoint: firstLastFrame ? BAILIAN_KF2V_ENDPOINT : BAILIAN_VIDEO_ENDPOINT,
+    // wan2.7 系列首尾帧也走 video-synthesis（media 数组）；仅早期 KF2V 模型走 image2video
+    endpoint: !isWan27MediaModel && firstLastFrame ? BAILIAN_KF2V_ENDPOINT : BAILIAN_VIDEO_ENDPOINT,
     body: submitBody,
   }
 }

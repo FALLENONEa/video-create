@@ -115,7 +115,9 @@ describe('bailian video provider', () => {
     expect(firstCall[1].body).toBe(JSON.stringify({
       model: 'wan2.7-i2v',
       input: {
-        img_url: 'https://example.com/frame.png',
+        media: [
+          { type: 'first_frame', url: 'https://example.com/frame.png' },
+        ],
         prompt: '让人物转身看向镜头',
       },
     }))
@@ -211,12 +213,14 @@ describe('bailian video provider', () => {
     if (!firstCall) {
       throw new Error('missing fetch call')
     }
-    expect(firstCall[0]).toBe('https://dashscope.aliyuncs.com/api/v1/services/aigc/image2video/video-synthesis')
+    expect(firstCall[0]).toBe('https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis')
     expect(firstCall[1].body).toBe(JSON.stringify({
       model: 'wan2.7-i2v',
       input: {
-        first_frame_url: 'https://example.com/first.png',
-        last_frame_url: 'https://example.com/last.png',
+        media: [
+          { type: 'first_frame', url: 'https://example.com/first.png' },
+          { type: 'last_frame', url: 'https://example.com/last.png' },
+        ],
         prompt: '从清晨过渡到夜晚',
       },
     }))

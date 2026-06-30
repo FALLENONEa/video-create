@@ -195,12 +195,16 @@ export async function generateVideo(
     _ulogInfo(`[generateVideo] resolved model selection: ${selection.modelKey}`)
     const providerKey = getProviderKey(selection.provider).toLowerCase()
     if (providerKey === 'bailian') {
+        // 百炼图生视频(wan 系列)不支持 aspectRatio：宽高比由输入图像 img_url 决定；
+        // 仅文生视频支持宽高比参数。此处剥离 aspectRatio，避免透传到 video.ts 触发 OPTION_UNSUPPORTED。
+        const bailianVideoOptions = { ...(options || {}) }
+        delete bailianVideoOptions.aspectRatio
         return await generateBailianVideo({
             userId,
             imageUrl,
             prompt: options?.prompt,
             options: {
-                ...(options || {}),
+                ...bailianVideoOptions,
                 provider: selection.provider,
                 modelId: selection.modelId,
                 modelKey: selection.modelKey,

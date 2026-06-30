@@ -6,6 +6,7 @@ import { isTaskActive } from '@/lib/task/service'
 import { reportTaskProgress } from '../shared'
 import { assertTaskActive, toSignedUrlIfCos, uploadVideoSourceToCos } from '../utils'
 import { renderEditorProject } from '@/lib/video-editor/compose'
+import { getMediaObjectByPublicId } from '@/lib/media/service'
 import type { VideoEditorProject, VideoClip, BgmClip, EditorConfig } from '@/features/video-editor/types/editor.types'
 
 type AnyObj = Record<string, unknown>
@@ -19,20 +20,33 @@ function isCosKey(src: string): boolean {
   return COS_KEY_PREFIXES.some((p) => src.startsWith(p))
 }
 
+/** 从 src 提取 /m/<publicId> 短链的 publicId（兼容相对 /m/xxx 与绝对 .../m/xxx）。 */
+function extractMediaPublicId(src: string): string | null {
+  try {
+    const u = new URL(src, 'http://placeholder.local')
+    const m = u.pathname.match(/^\/m\/([^/?#]+)/)
+    if (m) return m[1]
+  } catch {
+    // 非法 URL 走正则兜底
+  }
+  const m2 = src.match(/\/m\/([^/?#]+)/)
+  return m2 ? m2[1] : null
+}
+
 /**
  * 把 clip/bgm 的 src 归一为 worker 端可直接 fetch 的 COS presigned 绝对 URL。
  *
  * 工程里 src 可能是多种形态：
  *  - 裸 COS key（video/xxx.mp4）→ 直接签名；
- *  - 前端签名代理 URL（/api/storage/sign?key=video/xxx 或 https://域名/api/storage/sign?key=...）
- *    → 反解 key 参数重新签名（拿到新鲜 COS 直连 URL：绕开 app 域名可达性问题、避免旧 token 过期）；
+ *  - 媒体短链 /m/<publicId>（或绝对 .../m/<publicId>）→ 查 media_objects 拿 storageKey 再签；
+ *  - 签名代理 URL（含 key= 参数）→ 反解 key 重新签 COS 直连 URL；
  *  - 绝对 http(s)/data URL → 原样使用；
  *  - 其它 → 尝试当 key 签名，失败则抛 VIDEO_RENDER_MEDIA_URL_INVALID。
  *
- * 关键：相对 URL（/api/...）会被 Node 的 new URL/fetch 判为 "Invalid URL" 瞬间挂掉任务，
- * 这里统一归一成绝对 URL，避免下游 compose/downloadToFile 再踩这个坑。
+ * 关键：相对 URL（/m/...、/api/...）会被 Node 的 fetch 判为 "Failed to parse URL / Invalid URL"
+ * 瞬间挂掉任务，这里统一归一成绝对 URL，避免下游 compose/downloadToFile 再踩坑。
  */
-function resolveWorkerMediaUrl(src: string): string {
+async function resolveWorkerMediaUrl(src: string): Promise<string> {
   // 1. 裸 COS key：直接签
   if (isCosKey(src)) {
     const signed = toSignedUrlIfCos(src, URL_TTL_SEC)
@@ -40,7 +54,18 @@ function resolveWorkerMediaUrl(src: string): string {
     throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: ${src.slice(0, 100)}`)
   }
 
-  // 2. 签名代理 URL（含 key= 参数）：反解出真实 key，重新签 COS 直连 URL
+  // 2. 媒体短链 /m/<publicId>：查 media_objects 拿 storageKey 再签
+  const publicId = extractMediaPublicId(src)
+  if (publicId) {
+    const media = await getMediaObjectByPublicId(publicId)
+    if (media?.storageKey) {
+      const signed = toSignedUrlIfCos(media.storageKey, URL_TTL_SEC)
+      if (signed) return signed
+    }
+    throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: media publicId not resolvable: ${publicId}`)
+  }
+
+  // 3. 签名代理 URL（含 key= 参数）：反解出真实 key，重新签 COS 直连 URL
   if (src.includes('key=')) {
     try {
       const u = new URL(src, 'http://placeholder.local')
@@ -54,12 +79,12 @@ function resolveWorkerMediaUrl(src: string): string {
     }
   }
 
-  // 3. 绝对 http(s) / data URL：原样使用
+  // 4. 绝对 http(s) / data URL：原样使用
   if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
     return src
   }
 
-  // 4. 兜底：当作 key 尝试签名
+  // 5. 兜底：当作 key 尝试签名
   const fallback = toSignedUrlIfCos(src, URL_TTL_SEC)
   if (fallback) return fallback
 
@@ -70,11 +95,11 @@ function resolveWorkerMediaUrl(src: string): string {
 async function resolveClipUrls(clips: VideoClip[]): Promise<VideoClip[]> {
   return Promise.all(
     clips.map(async (clip) => {
-      const resolved: VideoClip = { ...clip, src: resolveWorkerMediaUrl(clip.src) }
+      const resolved: VideoClip = { ...clip, src: await resolveWorkerMediaUrl(clip.src) }
       if (clip.attachment?.audio?.src) {
         resolved.attachment = {
           ...clip.attachment,
-          audio: { ...clip.attachment.audio, src: resolveWorkerMediaUrl(clip.attachment.audio.src) },
+          audio: { ...clip.attachment.audio, src: await resolveWorkerMediaUrl(clip.attachment.audio.src) },
         }
       }
       return resolved
@@ -84,7 +109,7 @@ async function resolveClipUrls(clips: VideoClip[]): Promise<VideoClip[]> {
 
 async function resolveBgmUrls(bgmTrack: BgmClip[]): Promise<BgmClip[]> {
   return Promise.all(
-    bgmTrack.map(async (bgm) => ({ ...bgm, src: resolveWorkerMediaUrl(bgm.src) })),
+    bgmTrack.map(async (bgm) => ({ ...bgm, src: await resolveWorkerMediaUrl(bgm.src) })),
   )
 }
 

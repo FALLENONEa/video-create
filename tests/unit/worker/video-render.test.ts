@@ -26,6 +26,7 @@ const prismaMock = vi.hoisted(() => ({
   },
 }))
 const fsMock = vi.hoisted(() => ({ readFile: vi.fn(async () => Buffer.from('fake-mp4')) }))
+const mediaServiceMock = vi.hoisted(() => ({ getMediaObjectByPublicId: vi.fn() }))
 
 vi.mock('@/lib/video-editor/compose', () => ({ renderEditorProject: composeMock.renderEditorProject }))
 vi.mock('@/lib/workers/shared', () => ({
@@ -39,6 +40,7 @@ vi.mock('@/lib/workers/utils', () => ({
 }))
 vi.mock('@/lib/task/service', () => ({ isTaskActive: isTaskActiveMock }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/media/service', () => ({ getMediaObjectByPublicId: mediaServiceMock.getMediaObjectByPublicId }))
 vi.mock('node:fs/promises', () => ({ readFile: fsMock.readFile }))
 
 const { handleVideoRenderTask } = await import('@/lib/workers/handlers/video-render')
@@ -120,5 +122,25 @@ describe('video-render handler (TASK_TYPE.VIDEO_RENDER)', () => {
   it('throws when project not found', async () => {
     prismaMock.videoEditorProject.findUnique.mockResolvedValueOnce(null)
     await expect(handleVideoRenderTask(makeJob())).rejects.toThrow(/PROJECT_NOT_FOUND/)
+  })
+
+  it('resolves /m/<publicId> media short link via media_objects', async () => {
+    mediaServiceMock.getMediaObjectByPublicId.mockResolvedValue({ storageKey: 'video/clips/x.mp4' })
+    prismaMock.videoEditorProject.findUnique.mockResolvedValueOnce({
+      id: 'vep-1',
+      episodeId: 'ep-1',
+      projectData: JSON.stringify({
+        config: { fps: 30, width: 1920, height: 1080 },
+        timeline: [
+          { id: 'c1', src: '/m/m_testpub123', durationInFrames: 90, metadata: { panelId: 'p1', storyboardId: 's1' } },
+        ],
+        bgmTrack: [],
+      }),
+    })
+
+    await handleVideoRenderTask(makeJob())
+
+    expect(mediaServiceMock.getMediaObjectByPublicId).toHaveBeenCalledWith('m_testpub123')
+    expect(composeMock.renderEditorProject).toHaveBeenCalledTimes(1)
   })
 })

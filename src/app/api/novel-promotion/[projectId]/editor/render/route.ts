@@ -98,10 +98,21 @@ export const GET = apiHandler(async (
 
   const outputUrl = editorProject.outputUrl ? toSignedUrlIfCos(editorProject.outputUrl, 3600) : null
 
+  // 失败时带上原因（关联 tasks 表），让前端能告诉用户为什么挂了，而不是静默
+  let renderError: string | null = null
+  if (editorProject.renderStatus === 'failed' && editorProject.renderTaskId) {
+    const task = await prisma.task.findUnique({
+      where: { id: editorProject.renderTaskId },
+      select: { errorMessage: true },
+    })
+    renderError = task?.errorMessage ?? null
+  }
+
   return NextResponse.json({
     renderStatus: editorProject.renderStatus,
     outputUrl,
     renderTaskId: editorProject.renderTaskId,
     updatedAt: editorProject.updatedAt,
+    renderError,
   })
 })

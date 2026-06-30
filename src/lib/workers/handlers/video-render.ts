@@ -13,21 +13,68 @@ type AnyObj = Record<string, unknown>
 const DEFAULT_CONFIG: EditorConfig = { fps: 30, width: 1920, height: 1080 }
 const URL_TTL_SEC = 7200
 
-function signMediaUrl(src: string): string {
-  const url = toSignedUrlIfCos(src, URL_TTL_SEC)
-  if (!url) throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: ${src}`)
-  return url
+const COS_KEY_PREFIXES = ['images/', 'voice/', 'video/'] as const
+
+function isCosKey(src: string): boolean {
+  return COS_KEY_PREFIXES.some((p) => src.startsWith(p))
+}
+
+/**
+ * 把 clip/bgm 的 src 归一为 worker 端可直接 fetch 的 COS presigned 绝对 URL。
+ *
+ * 工程里 src 可能是多种形态：
+ *  - 裸 COS key（video/xxx.mp4）→ 直接签名；
+ *  - 前端签名代理 URL（/api/storage/sign?key=video/xxx 或 https://域名/api/storage/sign?key=...）
+ *    → 反解 key 参数重新签名（拿到新鲜 COS 直连 URL：绕开 app 域名可达性问题、避免旧 token 过期）；
+ *  - 绝对 http(s)/data URL → 原样使用；
+ *  - 其它 → 尝试当 key 签名，失败则抛 VIDEO_RENDER_MEDIA_URL_INVALID。
+ *
+ * 关键：相对 URL（/api/...）会被 Node 的 new URL/fetch 判为 "Invalid URL" 瞬间挂掉任务，
+ * 这里统一归一成绝对 URL，避免下游 compose/downloadToFile 再踩这个坑。
+ */
+function resolveWorkerMediaUrl(src: string): string {
+  // 1. 裸 COS key：直接签
+  if (isCosKey(src)) {
+    const signed = toSignedUrlIfCos(src, URL_TTL_SEC)
+    if (signed) return signed
+    throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: ${src.slice(0, 100)}`)
+  }
+
+  // 2. 签名代理 URL（含 key= 参数）：反解出真实 key，重新签 COS 直连 URL
+  if (src.includes('key=')) {
+    try {
+      const u = new URL(src, 'http://placeholder.local')
+      const key = u.searchParams.get('key')
+      if (key && isCosKey(key)) {
+        const signed = toSignedUrlIfCos(key, URL_TTL_SEC)
+        if (signed) return signed
+      }
+    } catch {
+      // 解析失败则继续尝试后续路径
+    }
+  }
+
+  // 3. 绝对 http(s) / data URL：原样使用
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+    return src
+  }
+
+  // 4. 兜底：当作 key 尝试签名
+  const fallback = toSignedUrlIfCos(src, URL_TTL_SEC)
+  if (fallback) return fallback
+
+  throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: ${src.slice(0, 100)}`)
 }
 
 /** 把 clip 的视频/配音 src 解析为可直接 fetch 的 presigned URL。 */
 async function resolveClipUrls(clips: VideoClip[]): Promise<VideoClip[]> {
   return Promise.all(
     clips.map(async (clip) => {
-      const resolved: VideoClip = { ...clip, src: signMediaUrl(clip.src) }
+      const resolved: VideoClip = { ...clip, src: resolveWorkerMediaUrl(clip.src) }
       if (clip.attachment?.audio?.src) {
         resolved.attachment = {
           ...clip.attachment,
-          audio: { ...clip.attachment.audio, src: signMediaUrl(clip.attachment.audio.src) },
+          audio: { ...clip.attachment.audio, src: resolveWorkerMediaUrl(clip.attachment.audio.src) },
         }
       }
       return resolved
@@ -37,7 +84,7 @@ async function resolveClipUrls(clips: VideoClip[]): Promise<VideoClip[]> {
 
 async function resolveBgmUrls(bgmTrack: BgmClip[]): Promise<BgmClip[]> {
   return Promise.all(
-    bgmTrack.map(async (bgm) => ({ ...bgm, src: signMediaUrl(bgm.src) })),
+    bgmTrack.map(async (bgm) => ({ ...bgm, src: resolveWorkerMediaUrl(bgm.src) })),
   )
 }
 

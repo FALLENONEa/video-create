@@ -9,6 +9,18 @@ import { createScopedLogger } from '@/lib/logging/core'
 
 const log = createScopedLogger({ module: 'video-editor:compose' })
 
+/**
+ * 从媒体 src 推断文件扩展名，绝不抛错。
+ * 兼容绝对 URL、相对 URL（/api/...）、带 query/hash、裸 key 等各种形态；
+ * 取不到合法扩展名时返回 fallback。取代原先 `new URL(src).pathname`——
+ * 后者遇到无协议相对 URL 会抛 "Invalid URL" 直接挂掉整个渲染任务。
+ */
+function inferMediaExt(src: string, fallback: string): string {
+  const clean = src.split('?')[0].split('#')[0]
+  const ext = path.extname(clean).toLowerCase()
+  return ext && /^\.[a-z0-9]{2,4}$/.test(ext) ? ext : fallback
+}
+
 /** 渲染合成入参。clips/bgm 的 src 必须是可直接 fetch 的 URL（COS presigned 或公网）。 */
 export interface ComposeInput {
   clips: VideoClip[]
@@ -167,12 +179,12 @@ async function stageDownload(
     while (cursor < total) {
       const i = cursor++
       const clip = input.clips[i]
-      const video = `clip_${i}${path.extname(new URL(clip.src).pathname) || '.mp4'}`.replace(/[^A-Za-z0-9._-]/g, '_')
+      const video = `clip_${i}${inferMediaExt(clip.src, '.mp4')}`.replace(/[^A-Za-z0-9._-]/g, '_')
       await downloadToFile(clip.src, path.join(workDir, video))
 
       let dub: string | null = null
       if (clip.attachment?.audio?.src) {
-        const dubExt = path.extname(new URL(clip.attachment.audio.src).pathname) || '.mp3'
+        const dubExt = inferMediaExt(clip.attachment.audio.src, '.mp3')
         dub = `dub_${i}${dubExt}`.replace(/[^A-Za-z0-9._-]/g, '_')
         await downloadToFile(clip.attachment.audio.src, path.join(workDir, dub))
       }
@@ -193,7 +205,7 @@ async function stageDownloadBgm(bgmTrack: BgmClip[], workDir: string): Promise<B
   for (let i = 0; i < bgmTrack.length; i++) {
     const bgm = bgmTrack[i]
     if (!bgm?.src) continue
-    const ext = path.extname(new URL(bgm.src).pathname) || '.mp3'
+    const ext = inferMediaExt(bgm.src, '.mp3')
     const name = `bgm_${i}${ext}`.replace(/[^A-Za-z0-9._-]/g, '_')
     await downloadToFile(bgm.src, path.join(workDir, name))
     metas.push({

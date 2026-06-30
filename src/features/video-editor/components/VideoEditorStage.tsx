@@ -1,9 +1,9 @@
 'use client'
 import { logError as _ulogError } from '@/lib/logging/core'
 import { useTranslations } from 'next-intl'
+import toast, { Toaster } from 'react-hot-toast'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { AppIcon } from '@/components/ui/icons'
 import { useEditorState } from '../hooks/useEditorState'
 import { useEditorActions } from '../hooks/useEditorActions'
 import { VideoEditorProject } from '../types/editor.types'
@@ -58,6 +58,7 @@ export function VideoEditorStage({
 
     const [renderStatus, setRenderStatus] = useState<string | null>(null)
     const [outputUrl, setOutputUrl] = useState<string | null>(null)
+    const [renderError, setRenderError] = useState<string | null>(null)
 
     // 初始拉取 + pending/rendering 时轮询渲染状态
     useEffect(() => {
@@ -68,6 +69,7 @@ export function VideoEditorStage({
                 if (cancelled) return
                 setRenderStatus(data.renderStatus ?? null)
                 setOutputUrl(data.outputUrl ?? null)
+                setRenderError(data.renderError ?? null)
             } catch {
                 // 静默：首次无工程时 404 属正常
             }
@@ -90,25 +92,51 @@ export function VideoEditorStage({
             markSaved()
             setRenderStatus(null)
             setOutputUrl(null)
-            alert(t('editor.alert.saveSuccess'))
+            setRenderError(null)
+            toast.success(t('editor.alert.saveSuccess'))
         } catch (error) {
             _ulogError('Save failed:', error)
-            alert(t('editor.alert.saveFailed'))
+            toast.error(t('editor.alert.saveFailed'))
         }
     }
 
     const handleExport = async () => {
-        if (project.timeline.length === 0) return
+        if (project.timeline.length === 0) {
+            toast.error(t('editor.alert.emptyTimeline'))
+            return
+        }
         try {
             await saveProject(project)
             markSaved()
             await startRender()
             setRenderStatus('pending')
             setOutputUrl(null)
-            alert(t('editor.alert.exportStarted'))
+            setRenderError(null)
+            toast.success(t('editor.alert.exportStarted'))
         } catch (error) {
             _ulogError('Export failed:', error)
-            alert(t('editor.alert.exportFailed'))
+            toast.error(t('editor.alert.exportFailed'))
+        }
+    }
+
+    // 真正触发浏览器下载文件（而非 window.open 在新标签页里播放）
+    const handleDownload = async () => {
+        if (!outputUrl) return
+        try {
+            const res = await fetch(outputUrl)
+            if (!res.ok) throw new Error(`status ${res.status}`)
+            const blob = await res.blob()
+            const blobUrl = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = blobUrl
+            a.download = `video-${episodeId}.mp4`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(blobUrl)
+        } catch {
+            // 兜底：CORS / 网络问题时退回新标签打开
+            window.open(outputUrl, '_blank')
         }
     }
 
@@ -153,10 +181,17 @@ export function VideoEditorStage({
 
                 {renderStatus === 'completed' && outputUrl ? (
                     <button
-                        onClick={() => window.open(outputUrl, '_blank')}
+                        onClick={handleDownload}
                         className="glass-btn-base glass-btn-tone-success px-4 py-2"
                     >
                         {t('editor.toolbar.download')}
+                    </button>
+                ) : renderStatus === 'failed' ? (
+                    <button
+                        onClick={handleExport}
+                        className="glass-btn-base glass-btn-tone-danger px-4 py-2"
+                    >
+                        {t('editor.toolbar.reexport')}
                     </button>
                 ) : (
                     <button
@@ -170,6 +205,24 @@ export function VideoEditorStage({
                     </button>
                 )}
             </div>
+
+            {/* 渲染状态条：让 pending/rendering/failed 都对用户可见，不再"干等" */}
+            {renderStatus && renderStatus !== 'completed' && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    borderBottom: '1px solid var(--glass-stroke-base)',
+                    background: renderStatus === 'failed' ? 'rgba(229, 72, 77, 0.10)' : 'var(--glass-bg-surface)',
+                    color: renderStatus === 'failed' ? '#e5484d' : 'var(--glass-text-secondary)'
+                }}>
+                    {renderStatus === 'failed'
+                        ? <span>⚠ {t('editor.alert.renderFailed')}{renderError ? `：${renderError}` : ''}</span>
+                        : <span>⏳ {t('editor.toolbar.rendering')}</span>}
+                </div>
+            )}
 
             {/* Main Content */}
             <div style={{
@@ -262,47 +315,6 @@ export function VideoEditorStage({
                             onPlayingChange={(playing) => playing ? play() : pause()}
                         />
                     </div>
-
-                    {/* Playback Controls */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '16px',
-                        padding: '12px',
-                        background: 'var(--glass-bg-surface-strong)',
-                        borderTop: '1px solid var(--glass-stroke-base)'
-                    }}>
-                        <button
-                            onClick={() => seek(0)}
-                            className="glass-btn-base glass-btn-ghost px-3 py-1.5"
-                        >
-                            <AppIcon name="chevronLeft" className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => timelineState.playing ? pause() : play()}
-                            style={{
-                                background: 'var(--glass-accent-from)',
-                                border: 'none',
-                                color: 'var(--glass-text-on-accent)',
-                                cursor: 'pointer',
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '50%',
-                                fontSize: '18px'
-                            }}
-                        >
-                            {timelineState.playing
-                                ? <AppIcon name="pause" className="w-4 h-4" />
-                                : <AppIcon name="play" className="w-4 h-4" />}
-                        </button>
-                        <button
-                            onClick={() => seek(totalDuration)}
-                            className="glass-btn-base glass-btn-ghost px-3 py-1.5"
-                        >
-                            <AppIcon name="chevronRight" className="w-4 h-4" />
-                        </button>
-                    </div>
                 </div>
 
                 {/* Right Panel - Properties */}
@@ -364,6 +376,8 @@ export function VideoEditorStage({
                     onSeek={seek}
                 />
             </div>
+
+            <Toaster position="top-center" />
         </div>
     )
 }

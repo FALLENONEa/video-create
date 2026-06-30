@@ -144,7 +144,8 @@
       "exportStarted": "Export has started. Please wait...",
       "exportFailed": "Export failed",
       "renderCompleted": "Render completed. You can preview or download the video.",
-      "renderFailed": "Render failed. Please retry."
+      "renderFailed": "Render failed. Please retry.",
+      "emptyTimeline": "Timeline is empty. Add clips first."
     },
     "toolbar": {
       "back": "← Back",
@@ -152,7 +153,8 @@
       "saved": "Saved",
       "export": "Export Video",
       "rendering": "Rendering…",
-      "download": "Download"
+      "download": "Download",
+      "reexport": "Re-export"
     },
     "left": {
       "title": "Current Clips",

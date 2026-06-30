@@ -144,7 +144,8 @@
       "exportStarted": "导出任务已开始，请稍候...",
       "exportFailed": "导出失败",
       "renderCompleted": "渲染完成，可下载或预览成片",
-      "renderFailed": "渲染失败，请重试"
+      "renderFailed": "渲染失败，请重试",
+      "emptyTimeline": "时间轴为空，请先添加片段"
     },
     "toolbar": {
       "back": "← 返回",
@@ -152,7 +153,8 @@
       "saved": "已保存",
       "export": "导出视频",
       "rendering": "渲染中…",
-      "download": "下载成片"
+      "download": "下载成片",
+      "reexport": "重新导出"
     },
     "left": {
       "title": "当前片段",

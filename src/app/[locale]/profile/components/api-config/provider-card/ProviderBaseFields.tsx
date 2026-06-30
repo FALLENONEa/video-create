@@ -18,6 +18,9 @@ export function ProviderBaseFields({ provider, t, state }: ProviderBaseFieldsPro
       case 'openai-compatible':
       case 'sub2api':
         return 'https://api.openai.com/v1'
+      case 'bailian':
+        // 仅声音复刻（qwen3-tts-vc）注册需要：填百炼工作空间 host；配音/视频/口型同步均不读取此值
+        return 'https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com'
       default:
         return 'http://localhost:8000'
     }

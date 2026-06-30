@@ -816,7 +816,8 @@
           "firstlastframe"
         ],
         "firstlastframe": true,
-        "supportGenerateAudio": false
+        "supportGenerateAudio": false,
+        "durationOptions": [5, 8, 10, 12, 15]
       }
     }
   },
@@ -830,7 +831,8 @@
           "normal"
         ],
         "firstlastframe": false,
-        "supportGenerateAudio": false
+        "supportGenerateAudio": false,
+        "durationOptions": [5, 8, 10, 12, 15]
       }
     }
   },
@@ -844,7 +846,8 @@
           "normal"
         ],
         "firstlastframe": false,
-        "supportGenerateAudio": false
+        "supportGenerateAudio": false,
+        "durationOptions": [5, 8, 10, 12, 15]
       }
     }
   },
@@ -858,7 +861,8 @@
           "normal"
         ],
         "firstlastframe": false,
-        "supportGenerateAudio": false
+        "supportGenerateAudio": false,
+        "durationOptions": [5, 10]
       }
     }
   },

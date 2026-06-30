@@ -9,6 +9,8 @@ const toFetchableUrlMock = vi.hoisted(() => vi.fn((input: string) => {
   return input
 }))
 
+const transcodeMock = vi.hoisted(() => vi.fn(async (buffer: Buffer) => buffer))
+
 vi.mock('@/lib/media/outbound-image', () => ({
   normalizeToOriginalMediaUrl: normalizeToOriginalMediaUrlMock,
 }))
@@ -20,6 +22,10 @@ vi.mock('@/lib/storage', () => ({
 
 vi.mock('@/lib/storage/utils', () => ({
   toFetchableUrl: toFetchableUrlMock,
+}))
+
+vi.mock('@/lib/lipsync/transcode', () => ({
+  transcodeAudioToWav: transcodeMock,
 }))
 
 vi.mock('@/lib/logging/core', () => ({
@@ -195,5 +201,36 @@ describe('lipsync preprocess', () => {
     expect(result.params.audioUrl).toBe('https://assets.example.com/audio.wav')
     expect(fetchMock).toHaveBeenCalled()
     expect(uploadObjectMock).not.toHaveBeenCalled()
+  })
+
+  it('transcodes non-WAV audio before padding', async () => {
+    // 真实场景：配音文件名为 .wav 但实际是 MP3（parseWavInfo 返回 null），需先转码成 WAV 再 pad
+    const transcodedWav = buildWav(1000)
+    transcodeMock.mockResolvedValue(transcodedWav)
+    const video = buildMp4WithDuration(5000)
+    const fakeMp3 = Buffer.alloc(64, 0)
+    fakeMp3[0] = 0xff
+    fakeMp3[1] = 0xfb
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('video.mp4')) return buildBinaryResponse(video, 'video/mp4')
+      if (url.includes('audio.mp3')) return buildBinaryResponse(fakeMp3, 'audio/mpeg')
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch)
+
+    const result = await preprocessLipSyncParams(
+      {
+        videoUrl: 'https://assets.example.com/video.mp4',
+        audioUrl: 'https://assets.example.com/audio.mp3',
+        audioDurationMs: 1000,
+      },
+      { providerKey: 'fal' },
+    )
+
+    expect(transcodeMock).toHaveBeenCalledTimes(1)
+    expect(result.paddedAudio).toBe(true)
+    expect(result.params.audioUrl.startsWith('data:audio/wav;base64,')).toBe(true)
   })
 })

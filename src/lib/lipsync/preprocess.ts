@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { logInfo as _ulogInfo } from '@/lib/logging/core'
 import { normalizeToOriginalMediaUrl } from '@/lib/media/outbound-image'
 import { toFetchableUrl } from '@/lib/storage/utils'
+import { transcodeAudioToWav } from '@/lib/lipsync/transcode'
 import type { LipSyncParams } from '@/lib/lipsync/types'
 
 const LIPSYNC_MIN_AUDIO_DURATION_MS = 2000
@@ -347,12 +348,14 @@ export async function preprocessLipSyncParams(
     }
   }
 
-  const audioBinary = await loadBinaryFromInput(params.audioUrl)
-  if (!audioBinary.mimeType.includes('wav') && parseWavInfo(audioBinary.buffer) === null) {
-    throw new Error('LIPSYNC_AUDIO_PREPROCESS_WAV_REQUIRED')
+  let audioBuffer = (await loadBinaryFromInput(params.audioUrl)).buffer
+  // 非 WAV（MP3/M4A 或结构不标准的 WAV）无法直接 pad/trim：配音文件名被生成层硬编码为 .wav，
+  // 但实际编码可能并非 WAV，故以字节内容为准判断；非 WAV 先用 ffmpeg 转成标准 PCM WAV。
+  if (parseWavInfo(audioBuffer) === null) {
+    audioBuffer = await transcodeAudioToWav(audioBuffer)
   }
 
-  const parsedAudioDuration = getWavDurationMs(audioBinary.buffer)
+  const parsedAudioDuration = getWavDurationMs(audioBuffer)
   if (audioDurationMs === null) {
     if (parsedAudioDuration === null) {
       throw new Error('LIPSYNC_AUDIO_DURATION_PARSE_FAILED')
@@ -360,7 +363,7 @@ export async function preprocessLipSyncParams(
     audioDurationMs = parsedAudioDuration
   }
 
-  let processedAudio = audioBinary.buffer
+  let processedAudio = audioBuffer
   let paddedAudio = false
   let trimmedAudio = false
 

@@ -836,7 +836,7 @@ async function pollBailianTask(requestId: string, userId: string): Promise<PollR
         if (taskStatus === 'FAILED' || taskStatus === 'CANCELED' || taskStatus === 'CANCELLED') {
             return {
                 status: 'failed',
-                error: `Bailian: ${resolvedCode || resolvedMessage || '任务失败'}`,
+                error: `Bailian: ${[resolvedCode, resolvedMessage].filter(Boolean).join(' - ') || '任务失败'}`,
             }
         }
 

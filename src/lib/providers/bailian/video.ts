@@ -209,7 +209,7 @@ export async function generateBailianVideo(params: BailianVideoGenerateParams): 
   if (!response.ok) {
     const code = readTrimmedString(data.code)
     const message = readTrimmedString(data.message)
-    throw new Error(`BAILIAN_VIDEO_SUBMIT_FAILED(${response.status}): ${code || message || 'unknown error'}`)
+    throw new Error(`BAILIAN_VIDEO_SUBMIT_FAILED(${response.status}): ${[code, message].filter(Boolean).join(' - ') || 'unknown error'}`)
   }
 
   const taskId = readTrimmedString(data.output?.task_id)

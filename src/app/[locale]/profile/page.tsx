@@ -82,7 +82,7 @@ export default function ProfilePage() {
               </nav>
               {/* 退出登录 */}
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => signOut({ redirect: false }).then(() => router.replace({ pathname: '/auth/signin' }))}
                 className="glass-btn-base glass-btn-tone-danger mt-auto flex items-center gap-2 px-4 py-3 text-sm rounded-xl transition-all cursor-pointer"
               >
                 <AppIcon name="logout" className="w-4 h-4" />

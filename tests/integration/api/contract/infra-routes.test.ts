@@ -16,6 +16,13 @@ const storageMock = vi.hoisted(() => ({
   getSignedObjectUrl: vi.fn(async (key: string, ttl: number) => `https://signed.example/${key}?expires=${ttl}`),
 }))
 
+const fetchMock = vi.hoisted(() => ({
+  fetch: vi.fn(async (_url: string) => new Response('fake-file-body', {
+    status: 200,
+    headers: { 'content-type': 'video/mp4', 'content-length': '14' },
+  })),
+}))
+
 vi.mock('@/lib/api-auth', () => {
   const unauthorized = () => new Response(
     JSON.stringify({ error: { code: 'UNAUTHORIZED' } }),
@@ -33,6 +40,9 @@ vi.mock('@/lib/api-auth', () => {
 
 vi.mock('@/lib/logging/file-writer', () => loggingMock)
 vi.mock('@/lib/storage', () => storageMock)
+
+// sign 路由改为服务端流式代理后，会 fetch 内网 presigned URL；测试里 mock 掉
+vi.stubGlobal('fetch', fetchMock.fetch)
 
 describe('api contract - infra routes (behavior)', () => {
   const routes = ROUTE_CATALOG.filter((entry) => entry.contractGroup === 'infra-routes')
@@ -122,7 +132,7 @@ describe('api contract - infra routes (behavior)', () => {
     expect(res.headers.get('location')).toBe('http://localhost:3000/api/storage/sign?key=folder%2Fa.png&expires=7200')
   })
 
-  it('GET /api/storage/sign redirects to signed object url with default ttl', async () => {
+  it('GET /api/storage/sign streams signed object content with default ttl', async () => {
     const mod = await import('@/app/api/storage/sign/route')
     const req = buildMockRequest({
       path: '/api/storage/sign?key=folder/a.png',
@@ -130,10 +140,13 @@ describe('api contract - infra routes (behavior)', () => {
     })
 
     const res = await mod.GET(req, { params: Promise.resolve({}) })
+    const body = await res.text()
 
     expect(storageMock.getSignedObjectUrl).toHaveBeenCalledWith('folder/a.png', 3600)
-    expect(res.status).toBe(307)
-    expect(res.headers.get('location')).toBe('https://signed.example/folder/a.png?expires=3600')
+    expect(fetchMock.fetch).toHaveBeenCalledWith('https://signed.example/folder/a.png?expires=3600')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('video/mp4')
+    expect(body).toBe('fake-file-body')
   })
 
   it('GET /api/system/boot-id returns the current server boot id', async () => {

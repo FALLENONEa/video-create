@@ -161,7 +161,7 @@
       "rendering": "Rendering…",
       "download": "Download",
       "reexport": "Re-export",
-      "syncNew": "Sync new ({count})"
+      "syncNew": "Sync new clips ({count})"
     },
     "left": {
       "title": "Current Clips",

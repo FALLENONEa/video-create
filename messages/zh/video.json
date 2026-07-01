@@ -161,7 +161,7 @@
       "rendering": "渲染中…",
       "download": "下载成片",
       "reexport": "重新导出",
-      "syncNew": "同步新片段（{{count}}）"
+      "syncNew": "同步新片段（{count}）"
     },
     "left": {
       "title": "当前片段",

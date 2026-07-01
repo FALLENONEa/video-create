@@ -347,7 +347,20 @@ export default function EditorStageRoute() {
       // 1. 刷新已有片段（src / 时长 / 配音轨）到最新面板数据
       const panelsByKey = new Map(basePanels.map((p) => [panelKey(p), p]))
       const durationByPanel = await resolvePanelDurations(basePanels, initialProject, true)
-      const refreshed = refreshSavedProjectFromPanels(initialProject, panelsByKey, durationByPanel)
+      // 移除"来自分镜但该分镜已被删除"的 clip：有分镜来源标记(panelId/storyboardId)
+      // 但 panelKey 不在最新 basePanels 中 → 该分镜已删,清出时间轴；
+      // 无分镜标记的 clip(用户在剪辑器手动添加)一律保留,不误删。
+      const liveKeys = new Set(basePanels.map((p) => panelKey(p)))
+      const prunedProject: VideoEditorProject = {
+        ...initialProject,
+        timeline: initialProject.timeline.filter((c) => {
+          const hasPanelSource = !!(c.metadata?.panelId || c.metadata?.storyboardId)
+          if (!hasPanelSource) return true
+          const key = c.metadata?.panelId || `${c.metadata?.storyboardId ?? ''}-unknown`
+          return liveKeys.has(key)
+        }),
+      }
+      const refreshed = refreshSavedProjectFromPanels(prunedProject, panelsByKey, durationByPanel)
 
       // 2. 追加尚未进工程的新片段
       const existing = new Set(

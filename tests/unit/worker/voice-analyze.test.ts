@@ -11,6 +11,7 @@ const prismaMock = vi.hoisted(() => ({
   project: { findUnique: vi.fn() },
   novelPromotionProject: { findUnique: vi.fn() },
   novelPromotionEpisode: { findUnique: vi.fn() },
+  novelPromotionVoiceLine: { findMany: vi.fn(async () => []) },
   $transaction: vi.fn(),
 }))
 

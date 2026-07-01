@@ -236,6 +236,19 @@ export async function handleVoiceAnalyzeTask(job: Job<TaskJobData>) {
   })
   await assertTaskActive(job, 'voice_analyze_persist')
 
+  // 重新分析时，voiceLine 的身份必须按「内容」判断，而非会漂移的 lineIndex：
+  //  - 用户改动台词内容 → 该条变成"新台词"，旧 audioUrl 必须作废，否则前端显示已生成、播放却是旧音频
+  //  - 删除某条后重新分析 → 整体 lineIndex 前移，新 lineIndex N 可能命中旧 lineIndex N 的不同内容记录，
+  //    此时 audioUrl 挂错了台词，必须清空重生成
+  // 方案：upsert 命中旧记录时，只有 content+speaker 都未变才保留 audioUrl；否则清空音频相关字段。
+  const existingLines = await prisma.novelPromotionVoiceLine.findMany({
+    where: { episodeId },
+    select: { lineIndex: true, content: true, speaker: true },
+  })
+  const existingByIndex = new Map<number, { content: string; speaker: string }>(
+    existingLines.map((l) => [l.lineIndex, { content: l.content, speaker: l.speaker }]),
+  )
+
   const createdVoiceLines = await prisma.$transaction(async (tx) => {
     const voiceLineModel = tx.novelPromotionVoiceLine as unknown as {
       upsert?: (args: unknown) => Promise<{
@@ -258,6 +271,12 @@ export async function handleVoiceAnalyzeTask(job: Job<TaskJobData>) {
 
     for (let i = 0; i < voiceLinesData.length; i += 1) {
       const lineData = voiceLinesData[i]
+
+      // 内容（speaker+content）是否与旧记录一致：一致则保留已生成音频，否则清空重生成
+      const existing = existingByIndex.get(lineData.lineIndex)
+      const contentUnchanged = !!existing
+        && existing.content === lineData.content
+        && existing.speaker === lineData.speaker
 
       const upsertArgs = {
         where: {
@@ -283,6 +302,13 @@ export async function handleVoiceAnalyzeTask(job: Job<TaskJobData>) {
           matchedPanelId: lineData.matchedPanelId,
           matchedStoryboardId: lineData.matchedStoryboardId,
           matchedPanelIndex: lineData.matchedPanelIndex,
+          // 内容变了 → 旧音频属于不同台词，必须作废；内容未变 → 保留已生成音频
+          ...(contentUnchanged ? {} : {
+            audioUrl: null,
+            audioMediaId: null,
+            audioDuration: null,
+            emotionPrompt: null,
+          }),
         },
         select: {
           id: true,

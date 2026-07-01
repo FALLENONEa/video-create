@@ -21,11 +21,13 @@ import {
 import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from './llm-stream'
 import type { TaskJobData } from '@/lib/task/types'
 import {
+  allocatePanelCountsByClip,
   buildStoryboardJsonFromClipPanels,
   parseEffort,
   parseTemperature,
   parseVoiceLinesJson,
   persistStoryboardOutputs,
+  toPositiveInt,
   type JsonRecord,
 } from './script-to-storyboard-helpers'
 import { buildPrompt, getPromptTemplate, PROMPT_IDS } from '@/lib/prompt-i18n'
@@ -39,6 +41,8 @@ import {
 
 type AnyObj = Record<string, unknown>
 const MAX_VOICE_ANALYZE_ATTEMPTS = 2
+/** 整集目标分镜总数的硬上限（防御异常输入；超出按上限处理）。 */
+const MAX_TOTAL_PANELS = 300
 
 function buildWorkflowWorkerId(job: Job<TaskJobData>, label: string) {
   return `${label}:${job.queueName}:${job.data.taskId}`
@@ -70,6 +74,11 @@ export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
   const reasoning = payload.reasoning !== false
   const requestedReasoningEffort = parseEffort(payload.reasoningEffort)
   const temperature = parseTemperature(payload.temperature)
+  // 用户可选的"整集目标分镜总数"：非正/缺省 → undefined（AI 自行判断数量，等价旧行为）
+  const targetPanelCountRaw = toPositiveInt(payload.targetPanelCount)
+  const targetPanelCount = targetPanelCountRaw && targetPanelCountRaw > 0
+    ? Math.min(targetPanelCountRaw, MAX_TOTAL_PANELS)
+    : undefined
 
   if (!episodeId) {
     throw new Error('episodeId is required')
@@ -125,6 +134,13 @@ export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
     throw new Error(`Retry clip not found: ${retryClipId}`)
   }
   const skipVoiceAnalyze = !!retryStepKey && retryStepKey !== 'voice_analyze'
+  // 整集目标总数按各 clip 字符占比分配到每个 clip；重试路径不约束数量（走 atomic-retry）
+  const targetPanelCountByClipId = retryTarget
+    ? {}
+    : allocatePanelCountsByClip(
+        selectedClips.map((clip) => ({ id: clip.id, content: clip.content })),
+        targetPanelCount,
+      )
 
   const model = await resolveAnalysisModel({
     userId: job.data.userId,
@@ -342,6 +358,7 @@ export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
                     phase2ActingTemplate,
                     phase3DetailTemplate,
                   },
+                  targetPanelCountByClipId,
                   runStep,
                 })
               } catch (error) {

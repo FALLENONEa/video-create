@@ -33,7 +33,7 @@ export interface WorkspaceStageRuntimeValue {
   onRunStoryToScript: () => Promise<void>
   onClipUpdate: (clipId: string, data: unknown) => Promise<void>
   onOpenAssetLibrary: () => void
-  onRunScriptToStoryboard: () => Promise<void>
+  onRunScriptToStoryboard: (targetPanelCount?: number) => Promise<void>
   onStageChange: (stage: string) => void
   onGenerateVideo: (
     storyboardId: string,
@@ -55,6 +55,7 @@ export interface WorkspaceStageRuntimeValue {
     value: string,
     field?: 'videoPrompt' | 'firstLastFramePrompt',
   ) => Promise<void>
+  onRefineVideoPrompts: () => Promise<{ succeeded: number; failed: number }>
   onUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
   onOpenAssetLibraryForCharacter: (characterId?: string | null, refreshAssets?: boolean) => void
 }

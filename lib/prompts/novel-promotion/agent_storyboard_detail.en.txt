@@ -26,6 +26,7 @@ Required fields per panel:
 - camera_move
 - video_prompt
 - first_last_frame_prompt (transition prompt for first-last-frame video mode: the model receives this shot's frame as the FIRST frame and the NEXT shot's frame as the LAST frame, then generates the transition video between them; describe the continuous action/motion from this shot's end-state to the next shot's start-state; use age+gender wording; null if last panel with no successor)
+- ⭐ Cross-shot continuity: this shot's "ending visual state" MUST be carried over into the next shot's video_prompt — the next shot's video_prompt starting visual (character position, facing, posture, framing) must match the transition endpoint of this shot's first_last_frame_prompt; no jumps or contradictions in position/facing/framing at the splice.
 - duration (optional)
 
 Output schema example (field names must be preserved):

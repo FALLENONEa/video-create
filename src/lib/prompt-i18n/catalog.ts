@@ -79,6 +79,7 @@ export const PROMPT_CATALOG: Record<PromptId, PromptCatalogEntry> = {
       'props_description',
       'clip_json',
       'clip_content',
+      'panel_count_directive',
     ],
   },
   [PROMPT_IDS.NP_AI_STORY_EXPAND]: {
@@ -144,6 +145,10 @@ export const PROMPT_CATALOG: Record<PromptId, PromptCatalogEntry> = {
   [PROMPT_IDS.NP_SINGLE_PANEL_IMAGE]: {
     pathStem: 'novel-promotion/single_panel_image',
     variableKeys: ['storyboard_text_json_input', 'source_text', 'aspect_ratio', 'style'],
+  },
+  [PROMPT_IDS.NP_VIDEO_PROMPT_REFINE]: {
+    pathStem: 'novel-promotion/video_prompt_refine',
+    variableKeys: ['panels_json'],
   },
   [PROMPT_IDS.NP_STORYBOARD_EDIT]: {
     pathStem: 'novel-promotion/storyboard_edit',

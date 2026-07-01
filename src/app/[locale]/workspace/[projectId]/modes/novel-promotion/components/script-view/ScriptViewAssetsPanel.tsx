@@ -41,7 +41,7 @@ interface ScriptViewAssetsPanelProps {
   globalLocationIds: string[]
   globalPropIds: string[]
   missingAssetsCount: number
-  onGenerateStoryboard?: () => void
+  onGenerateStoryboard?: (targetPanelCount?: number) => void
   isSubmittingStoryboardBuild: boolean
   getSelectedAppearances: (char: Character) => CharacterAppearance[]
   tScript: (key: string, values?: Record<string, unknown>) => string
@@ -146,6 +146,8 @@ export default function ScriptViewAssetsPanel({
   tNP,
   tCommon,
 }: ScriptViewAssetsPanelProps) {
+  // 用户可选的"目标分镜数量"（用字符串承接输入框，提交时转 number；留空 = 让 AI 自行判断数量）
+  const [targetPanelCount, setTargetPanelCount] = useState('')
   const [showAddChar, setShowAddChar] = useState(false)
   const [showAddLoc, setShowAddLoc] = useState(false)
   const [showAddProp, setShowAddProp] = useState(false)
@@ -874,8 +876,26 @@ export default function ScriptViewAssetsPanel({
             </p>
           </div>
         )}
+        <div className="mb-3 flex items-center gap-2">
+          <label htmlFor="np-target-panel-count" className="text-sm text-[var(--glass-text-secondary)] whitespace-nowrap">
+            {tScript('generate.panelCountLabel')}
+          </label>
+          <input
+            id="np-target-panel-count"
+            type="number"
+            min={1}
+            max={300}
+            inputMode="numeric"
+            value={targetPanelCount}
+            onChange={(e) => setTargetPanelCount(e.target.value.replace(/[^0-9]/g, ''))}
+            placeholder={tScript('generate.panelCountPlaceholder')}
+            disabled={isSubmittingStoryboardBuild}
+            className="w-24 px-3 py-2 rounded-xl bg-[var(--glass-bg-surface)] border border-[var(--glass-stroke-base)] text-sm text-[var(--glass-text-primary)] focus:outline-none focus:border-[var(--glass-tone-info-fg)] disabled:opacity-50"
+          />
+          <span className="text-xs text-[var(--glass-text-tertiary)]">{tScript('generate.panelCountHint')}</span>
+        </div>
         <button
-          onClick={onGenerateStoryboard}
+          onClick={() => onGenerateStoryboard?.(targetPanelCount.trim() ? Number(targetPanelCount) : undefined)}
           disabled={isSubmittingStoryboardBuild || clips.length === 0 || !allAssetsHaveImages}
           className="glass-btn-base glass-btn-primary w-full py-4 text-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >

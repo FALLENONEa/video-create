@@ -173,6 +173,7 @@ export function useNovelPromotionWorkspaceController({
     handleGenerateVideo: videoActions.handleGenerateVideo,
     handleGenerateAllVideos: videoActions.handleGenerateAllVideos,
     handleUpdateVideoPrompt: videoActions.handleUpdateVideoPrompt,
+    handleRefineVideoPrompts: videoActions.handleRefineVideoPrompts,
     handleUpdatePanelVideoModel: videoActions.handleUpdatePanelVideoModel,
   })
 
@@ -227,6 +228,7 @@ export function useNovelPromotionWorkspaceController({
     handleGenerateVideo: videoActions.handleGenerateVideo,
     handleGenerateAllVideos: videoActions.handleGenerateAllVideos,
     handleUpdateVideoPrompt: videoActions.handleUpdateVideoPrompt,
+    handleRefineVideoPrompts: videoActions.handleRefineVideoPrompts,
     handleUpdatePanelVideoModel: videoActions.handleUpdatePanelVideoModel,
     handleUpdateClip: videoActions.handleUpdateClip,
   }

@@ -54,7 +54,7 @@ interface ScriptViewProps {
   onClipEdit?: (clipId: string) => void
   onClipUpdate?: (clipId: string, data: Partial<Clip>) => void
   onClipDelete?: (clipId: string) => void
-  onGenerateStoryboard?: () => void
+  onGenerateStoryboard?: (targetPanelCount?: number) => void
   isSubmittingStoryboardBuild?: boolean
   assetsLoading?: boolean
   onOpenAssetLibrary?: () => void

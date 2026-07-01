@@ -27,6 +27,9 @@ const prismaMock = vi.hoisted(() => ({
 }))
 const fsMock = vi.hoisted(() => ({ readFile: vi.fn(async () => Buffer.from('fake-mp4')) }))
 const mediaServiceMock = vi.hoisted(() => ({ getMediaObjectByPublicId: vi.fn() }))
+const storageMock = vi.hoisted(() => ({
+  getSignedObjectUrl: vi.fn(async (key: string) => `https://minio.example/${encodeURIComponent(key)}?signed`),
+}))
 
 vi.mock('@/lib/video-editor/compose', () => ({ renderEditorProject: composeMock.renderEditorProject }))
 vi.mock('@/lib/workers/shared', () => ({
@@ -41,6 +44,7 @@ vi.mock('@/lib/workers/utils', () => ({
 vi.mock('@/lib/task/service', () => ({ isTaskActive: isTaskActiveMock }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/media/service', () => ({ getMediaObjectByPublicId: mediaServiceMock.getMediaObjectByPublicId }))
+vi.mock('@/lib/storage', () => ({ getSignedObjectUrl: storageMock.getSignedObjectUrl }))
 vi.mock('node:fs/promises', () => ({ readFile: fsMock.readFile }))
 
 const { handleVideoRenderTask } = await import('@/lib/workers/handlers/video-render')
@@ -93,7 +97,7 @@ describe('video-render handler (TASK_TYPE.VIDEO_RENDER)', () => {
     const result = await handleVideoRenderTask(makeJob())
 
     expect(composeMock.renderEditorProject).toHaveBeenCalledTimes(1)
-    expect(utilsMock.toSignedUrlIfCos).toHaveBeenCalled()
+    expect(storageMock.getSignedObjectUrl).toHaveBeenCalled()
     expect(utilsMock.uploadVideoSourceToCos).toHaveBeenCalledWith(
       expect.any(Buffer),
       'video-render',

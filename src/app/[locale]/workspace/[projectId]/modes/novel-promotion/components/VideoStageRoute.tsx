@@ -33,6 +33,7 @@ export default function VideoStageRoute() {
       onGenerateAllVideos={runtime.onGenerateAllVideos}
       onBack={() => runtime.onStageChange('storyboard')}
       onUpdateVideoPrompt={runtime.onUpdateVideoPrompt}
+      onRefineVideoPrompts={runtime.onRefineVideoPrompts}
       onUpdatePanelVideoModel={runtime.onUpdatePanelVideoModel}
       onOpenAssetLibraryForCharacter={(characterId) =>
         characterId

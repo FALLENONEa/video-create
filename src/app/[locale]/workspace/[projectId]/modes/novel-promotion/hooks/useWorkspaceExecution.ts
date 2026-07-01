@@ -221,7 +221,7 @@ export function useWorkspaceExecution({
     }
   }, [analysisModel, episodeId, finalizeStoryToScriptSuccess, novelText, onUpdateConfig, storyToScriptStream, t])
 
-  const runScriptToStoryboardFlow = useCallback(async () => {
+  const runScriptToStoryboardFlow = useCallback(async (options?: { targetPanelCount?: number }) => {
     if (!episodeId) {
       alert(t('execution.selectEpisode'))
       return
@@ -236,6 +236,7 @@ export function useWorkspaceExecution({
         model: analysisModel || undefined,
         temperature: 0.7,
         reasoning: true,
+        targetPanelCount: options?.targetPanelCount,
       })
       if (runResult.status !== 'completed') {
         throw new Error(runResult.errorMessage || t('execution.scriptToStoryboardFailed'))

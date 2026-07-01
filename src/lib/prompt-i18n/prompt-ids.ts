@@ -28,6 +28,7 @@ export const PROMPT_IDS = {
   NP_SELECT_LOCATION: 'np_select_location',
   NP_SINGLE_PANEL_IMAGE: 'np_single_panel_image',
   NP_STORYBOARD_EDIT: 'np_storyboard_edit',
+  NP_VIDEO_PROMPT_REFINE: 'np_video_prompt_refine',
   NP_VOICE_ANALYSIS: 'np_voice_analysis',
 } as const
 

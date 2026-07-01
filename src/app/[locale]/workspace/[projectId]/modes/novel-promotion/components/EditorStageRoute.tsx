@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { VideoEditorStage, useEditorActions, createProjectFromPanels } from '@/features/video-editor'
 import type { VideoEditorProject } from '@/features/video-editor/types/editor.types'
 import { useWorkspaceProvider } from '../WorkspaceProvider'
@@ -162,6 +162,39 @@ export default function EditorStageRoute() {
 
   const [initialProject, setInitialProject] = useState<VideoEditorProject | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const [syncVersion, setSyncVersion] = useState(0)
+
+  // 有视频源的面板（lipSyncVideoUrl 优先，回退 videoUrl）。提到 useMemo 供加载与"同步新片段"复用。
+  const basePanels = useMemo(
+    () =>
+      storyboards
+        .flatMap((sb) => sb.panels || [])
+        .map((p) => {
+          const url = p.lipSyncVideoUrl || p.videoUrl
+          if (!url) return null
+          return {
+            id: p.id,
+            panelIndex: p.panelIndex,
+            storyboardId: p.storyboardId,
+            videoUrl: url,
+            usesLipSyncVideo: !!p.lipSyncVideoUrl,
+            description: p.description || undefined,
+            duration: normalizeDurationSec(p.duration),
+          }
+        })
+        .filter((p): p is NonNullable<typeof p> => p !== null),
+    [storyboards],
+  )
+
+  const voiceLinesByPanel = useMemo(
+    () =>
+      new Map(
+        voiceLines
+          .filter((line) => line.audioUrl && line.matchedStoryboardId && typeof line.matchedPanelIndex === 'number')
+          .map((line) => [`${line.matchedStoryboardId}-${line.matchedPanelIndex}`, line]),
+      ),
+    [voiceLines],
+  )
 
   // episodeId 变化时立即回到加载态并清空旧工程，避免切换 episode 时串台显示上一个的内容
   useEffect(() => {
@@ -184,26 +217,6 @@ export default function EditorStageRoute() {
       try {
         const saved = await loadProject()
         if (cancelled) return
-        // 先收集所有"有视频源"的面板——panel 是否纳入只取决于有无 URL，
-        // 绝不因时长探测失败而丢弃（这正是上一版视频整体消失的根因）。
-        // lipSyncVideoUrl 优先，回退 videoUrl。
-        const basePanels = storyboards
-          .flatMap((sb) => sb.panels || [])
-          .map((p) => {
-            const url = p.lipSyncVideoUrl || p.videoUrl
-            if (!url) return null
-            return {
-              id: p.id,
-              panelIndex: p.panelIndex,
-              storyboardId: p.storyboardId,
-              videoUrl: url,
-              usesLipSyncVideo: !!p.lipSyncVideoUrl,
-              description: p.description || undefined,
-              duration: normalizeDurationSec(p.duration),
-            }
-          })
-          .filter((p): p is NonNullable<typeof p> => p !== null)
-
         if (basePanels.length === 0) {
           if (saved && Array.isArray(saved.timeline) && saved.timeline.length > 0) {
             setInitialProject(saved)
@@ -240,11 +253,6 @@ export default function EditorStageRoute() {
           ...p,
           duration: durationByPanel.get(panelKey(p)) ?? DEFAULT_CLIP_DURATION_SEC,
         }))
-        const voiceLinesByPanel = new Map(
-          voiceLines
-            .filter((line) => line.audioUrl && line.matchedStoryboardId && typeof line.matchedPanelIndex === 'number')
-            .map((line) => [`${line.matchedStoryboardId}-${line.matchedPanelIndex}`, line]),
-        )
         const clipVoiceLines = panels.map((panel) => {
           if (panel.usesLipSyncVideo) return undefined
           const voiceLine = voiceLinesByPanel.get(`${panel.storyboardId}-${panel.panelIndex ?? 'unknown'}`)
@@ -267,7 +275,30 @@ export default function EditorStageRoute() {
     return () => {
       cancelled = true
     }
-  }, [episodeId, episodeLoading, storyboards, voiceLines, loadProject])
+  }, [episodeId, episodeLoading, basePanels, voiceLinesByPanel, loadProject])
+
+  // basePanels 中尚未进当前工程的片段（按 panelKey 比对），用于"同步新片段"按钮
+  const newPanels = useMemo(() => {
+    if (!initialProject) return []
+    const existing = new Set(
+      initialProject.timeline.map((c) => c.metadata?.panelId || `${c.metadata?.storyboardId ?? ''}-unknown`),
+    )
+    return basePanels.filter((p) => !existing.has(panelKey(p)))
+  }, [basePanels, initialProject])
+
+  // 把新片段追加到当前工程末尾，并 bump key 让 VideoEditorStage 重新挂载载入新工程
+  const handleSyncNewClips = useCallback(() => {
+    if (!episodeId || !initialProject || newPanels.length === 0) return
+    const newVoiceLines = newPanels.map((panel) => {
+      if (panel.usesLipSyncVideo) return undefined
+      const vl = voiceLinesByPanel.get(`${panel.storyboardId}-${panel.panelIndex ?? 'unknown'}`)
+      if (!vl?.audioUrl) return undefined
+      return { id: vl.id, speaker: vl.speaker, content: vl.content, audioUrl: vl.audioUrl }
+    })
+    const part = createProjectFromPanels(episodeId, newPanels, newVoiceLines)
+    setInitialProject((prev) => (prev ? { ...prev, timeline: [...prev.timeline, ...part.timeline] } : prev))
+    setSyncVersion((v) => v + 1)
+  }, [initialProject, newPanels, voiceLinesByPanel, episodeId])
 
   if (!episodeId) return null
   if (loading) {
@@ -280,10 +311,12 @@ export default function EditorStageRoute() {
 
   return (
     <VideoEditorStage
-      key={episodeId}
+      key={`${episodeId}-${syncVersion}`}
       projectId={projectId}
       episodeId={episodeId}
       initialProject={initialProject}
+      newClipCount={newPanels.length}
+      onSyncNewClips={handleSyncNewClips}
       onBack={() => runtime.onStageChange('videos')}
     />
   )

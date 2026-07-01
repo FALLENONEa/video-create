@@ -81,6 +81,12 @@
     "completedShots": "{count} completed",
     "failedShots": "{count} failed",
     "generateAll": "Generate All Videos",
+    "refinePrompts": "Refine Prompts",
+    "refiningPrompts": "Refining...",
+    "refinePromptsHint": "Use AI to optimize all shot prompts, ensuring smooth continuity in action, camera and framing across shots (especially first-last-frame and single-frame splices)",
+    "refineResultSuccess": "Prompt refinement complete, {succeeded} succeeded",
+    "refineResultPartial": "Refinement done: {succeeded} succeeded, {failed} failed",
+    "refineFailed": "Refinement failed",
     "batchConfigTitle": "Batch Generation Settings",
     "batchConfigDesc": "Choose model and parameters before generating all videos.",
     "confirmGenerateAll": "Confirm and Generate All",
@@ -154,7 +160,8 @@
       "export": "Export Video",
       "rendering": "Rendering…",
       "download": "Download",
-      "reexport": "Re-export"
+      "reexport": "Re-export",
+      "syncNew": "Sync new ({count})"
     },
     "left": {
       "title": "Current Clips",

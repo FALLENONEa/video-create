@@ -29,7 +29,7 @@ interface UseWorkspaceStageRuntimeParams {
   handleUpdateConfig: (key: string, value: unknown) => Promise<void>
   runWithRebuildConfirm: (action: 'storyToScript' | 'scriptToStoryboard', operation: () => Promise<void>) => Promise<void>
   runStoryToScriptFlow: () => Promise<void>
-  runScriptToStoryboardFlow: () => Promise<void>
+  runScriptToStoryboardFlow: (options?: { targetPanelCount?: number }) => Promise<void>
   handleUpdateClip: (clipId: string, updates: Record<string, unknown>) => Promise<void>
   openAssetLibrary: (characterId?: string | null, refreshAssets?: boolean) => void
   handleStageChange: (stage: string) => void
@@ -53,6 +53,7 @@ interface UseWorkspaceStageRuntimeParams {
     value: string,
     field?: 'videoPrompt' | 'firstLastFramePrompt',
   ) => Promise<void>
+  handleRefineVideoPrompts: () => Promise<{ succeeded: number; failed: number }>
   handleUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
 }
 
@@ -79,6 +80,7 @@ export function useWorkspaceStageRuntime({
   handleGenerateVideo,
   handleGenerateAllVideos,
   handleUpdateVideoPrompt,
+  handleRefineVideoPrompts,
   handleUpdatePanelVideoModel,
 }: UseWorkspaceStageRuntimeParams) {
   const resolvedUserVideoModels = useMemo(
@@ -110,11 +112,12 @@ export function useWorkspaceStageRuntime({
       return handleUpdateClip(clipId, data as Record<string, unknown>)
     },
     onOpenAssetLibrary: () => openAssetLibrary(),
-    onRunScriptToStoryboard: () => runWithRebuildConfirm('scriptToStoryboard', runScriptToStoryboardFlow),
+    onRunScriptToStoryboard: (targetPanelCount) => runWithRebuildConfirm('scriptToStoryboard', () => runScriptToStoryboardFlow({ targetPanelCount })),
     onStageChange: handleStageChange,
     onGenerateVideo: handleGenerateVideo,
     onGenerateAllVideos: handleGenerateAllVideos,
     onUpdateVideoPrompt: handleUpdateVideoPrompt,
+    onRefineVideoPrompts: handleRefineVideoPrompts,
     onUpdatePanelVideoModel: handleUpdatePanelVideoModel,
     onOpenAssetLibraryForCharacter: (characterId, refreshAssets) => openAssetLibrary(characterId, refreshAssets),
   }), [
@@ -128,6 +131,7 @@ export function useWorkspaceStageRuntime({
     handleUpdateEpisode,
     handleUpdatePanelVideoModel,
     handleUpdateVideoPrompt,
+    handleRefineVideoPrompts,
     isConfirmingAssets,
     isStartingScriptToStoryboard,
     isStartingStoryToScript,

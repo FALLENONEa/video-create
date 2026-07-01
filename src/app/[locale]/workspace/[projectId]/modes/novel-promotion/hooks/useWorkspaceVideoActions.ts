@@ -1,8 +1,14 @@
 'use client'
 
 import { logInfo as _ulogInfo, logError as _ulogError } from '@/lib/logging/core'
+import { useLocale } from 'next-intl'
 import { useGenerateVideo, useBatchGenerateVideos } from '@/lib/query/hooks/useStoryboards'
-import { useUpdateProjectPanelVideoPrompt, useUpdateProjectClip, useUpdateProjectConfig } from '@/lib/query/hooks'
+import {
+  useRefineProjectVideoPrompts,
+  useUpdateProjectPanelVideoPrompt,
+  useUpdateProjectClip,
+  useUpdateProjectConfig,
+} from '@/lib/query/hooks'
 import type { BatchVideoGenerationParams, VideoGenerationOptions } from '../components/video'
 
 interface UseWorkspaceVideoActionsParams {
@@ -37,6 +43,8 @@ export function useWorkspaceVideoActions({
   const updateProjectPanelVideoPromptMutation = useUpdateProjectPanelVideoPrompt(projectId)
   const updateProjectClipMutation = useUpdateProjectClip(projectId)
   const updateProjectConfigMutation = useUpdateProjectConfig(projectId)
+  const refineVideoPromptsMutation = useRefineProjectVideoPrompts(projectId)
+  const locale = useLocale()
 
   const handleGenerateVideo = async (
     storyboardId: string,
@@ -110,6 +118,52 @@ export function useWorkspaceVideoActions({
     await updateProjectPanelVideoPromptMutation.mutateAsync({ storyboardId, panelIndex, value, field })
   }
 
+  /**
+   * 修缮整集视频提示词（跨镜头连贯性优化）：
+   * 后端 LLM 修缮后，前端逐条 PATCH 落库 videoPrompt + firstLastFramePrompt。
+   * 任一条落库失败不中断整体（已成功的不回滚），最终返回成功/失败计数。
+   */
+  const handleRefineVideoPrompts = async (): Promise<{ succeeded: number; failed: number }> => {
+    if (!episodeId) {
+      return { succeeded: 0, failed: 0 }
+    }
+    const result = await refineVideoPromptsMutation.mutateAsync({ episodeId, locale }) as { refined?: Array<{
+      storyboardId: string
+      panelIndex: number
+      videoPrompt: string
+      firstLastFramePrompt: string | null
+    }> }
+    const refined = result?.refined || []
+    let succeeded = 0
+    let failed = 0
+    for (const item of refined) {
+      try {
+        if (item.videoPrompt) {
+          await updateProjectPanelVideoPromptMutation.mutateAsync({
+            storyboardId: item.storyboardId,
+            panelIndex: item.panelIndex,
+            value: item.videoPrompt,
+            field: 'videoPrompt',
+          })
+        }
+        if (item.firstLastFramePrompt) {
+          await updateProjectPanelVideoPromptMutation.mutateAsync({
+            storyboardId: item.storyboardId,
+            panelIndex: item.panelIndex,
+            value: item.firstLastFramePrompt,
+            field: 'firstLastFramePrompt',
+          })
+        }
+        succeeded += 1
+      } catch (err) {
+        _ulogError('[RefineVideoPrompts] 落库失败:', err)
+        failed += 1
+      }
+    }
+    _ulogInfo('[RefineVideoPrompts] 完成', { succeeded, failed, total: refined.length })
+    return { succeeded, failed }
+  }
+
   const handleUpdatePanelVideoModel = async (_storyboardId: string, _panelIndex: number, model: string) => {
     const normalizedModel = model.trim()
     if (!normalizedModel) return
@@ -141,6 +195,8 @@ export function useWorkspaceVideoActions({
     handleGenerateVideo,
     handleGenerateAllVideos,
     handleUpdateVideoPrompt,
+    handleRefineVideoPrompts,
+    refineVideoPromptsMutation,
     handleUpdatePanelVideoModel,
     handleUpdateClip,
   }

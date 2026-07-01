@@ -100,7 +100,7 @@ interface BuildWorkspaceControllerViewModelParams {
     handleGenerateTTS: () => Promise<void>
     handleAnalyzeAssets: () => Promise<void>
     runStoryToScriptFlow: () => Promise<void>
-    runScriptToStoryboardFlow: () => Promise<void>
+    runScriptToStoryboardFlow: (options?: { targetPanelCount?: number }) => Promise<void>
     showCreatingToast: boolean
   }
   videoState: {
@@ -124,6 +124,7 @@ interface BuildWorkspaceControllerViewModelParams {
       value: string,
       field?: 'videoPrompt' | 'firstLastFramePrompt',
     ) => Promise<void>
+    handleRefineVideoPrompts: () => Promise<{ succeeded: number; failed: number }>
     handleUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
     handleUpdateClip: (clipId: string, updates: Record<string, unknown>) => Promise<void>
   }

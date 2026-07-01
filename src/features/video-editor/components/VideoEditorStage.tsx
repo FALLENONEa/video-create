@@ -15,6 +15,8 @@ interface VideoEditorStageProps {
     projectId: string
     episodeId: string
     initialProject?: VideoEditorProject
+    newClipCount?: number
+    onSyncNewClips?: () => void
     onBack?: () => void
 }
 
@@ -37,6 +39,8 @@ export function VideoEditorStage({
     projectId,
     episodeId,
     initialProject,
+    newClipCount,
+    onSyncNewClips,
     onBack
 }: VideoEditorStageProps) {
     const t = useTranslations('video')
@@ -171,6 +175,15 @@ export function VideoEditorStage({
                 <span style={{ color: 'var(--glass-text-secondary)', fontSize: '14px' }}>
                     {currentTime} / {totalTime}
                 </span>
+
+                {newClipCount && newClipCount > 0 && onSyncNewClips ? (
+                    <button
+                        onClick={onSyncNewClips}
+                        className="glass-btn-base glass-btn-secondary px-4 py-2"
+                    >
+                        {t('editor.toolbar.syncNew', { count: newClipCount })}
+                    </button>
+                ) : null}
 
                 <button
                     onClick={handleSave}

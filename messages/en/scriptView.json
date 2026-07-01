@@ -65,6 +65,9 @@
         "missingAssetsTip": "Please generate images for all characters and locations in",
         "missingAssetsTipLink": "first",
         "generating": "Generating...",
-        "startGenerate": "Confirm and Start Drawing →"
+        "startGenerate": "Confirm and Start Drawing →",
+        "panelCountLabel": "Panel Count",
+        "panelCountPlaceholder": "Auto",
+        "panelCountHint": "Leave empty to let AI decide"
     }
 }

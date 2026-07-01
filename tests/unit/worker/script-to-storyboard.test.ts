@@ -164,6 +164,7 @@ vi.mock('@/lib/workers/handlers/script-to-storyboard-helpers', () => ({
   parseTemperature: vi.fn(() => 0.7),
   parseVoiceLinesJson: parseVoiceLinesJsonMock,
   persistStoryboardOutputs: persistStoryboardOutputsMock,
+  allocatePanelCountsByClip: () => ({}),
   toPositiveInt: (value: unknown) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null
     const n = Math.floor(value)

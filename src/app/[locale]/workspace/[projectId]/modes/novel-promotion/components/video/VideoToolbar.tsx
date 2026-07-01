@@ -12,6 +12,8 @@ interface VideoToolbarProps {
   isAnyTaskRunning: boolean
   isDownloading: boolean
   onGenerateAll: () => void
+  onRefinePrompts?: () => void | Promise<void>
+  isRefiningPrompts?: boolean
   onDownloadAll: () => void
   onBack: () => void
   onEnterEditor?: () => void  // 进入剪辑器
@@ -26,6 +28,8 @@ export default function VideoToolbar({
   isAnyTaskRunning,
   isDownloading,
   onGenerateAll,
+  onRefinePrompts,
+  isRefiningPrompts = false,
   onDownloadAll,
   onBack,
   onEnterEditor,
@@ -83,6 +87,17 @@ export default function VideoToolbar({
               </>
             )}
           </button>
+          {onRefinePrompts && (
+            <button
+              onClick={onRefinePrompts}
+              disabled={isAnyTaskRunning || isRefiningPrompts || totalPanels === 0}
+              className="glass-btn-base glass-btn-secondary flex items-center gap-2 px-4 py-2 text-sm font-medium border border-[var(--glass-stroke-base)] disabled:opacity-50 disabled:cursor-not-allowed"
+              title={t('toolbar.refinePromptsHint')}
+            >
+              <AppIcon name="sparkles" className={`w-4 h-4 ${isRefiningPrompts ? 'animate-spin' : ''}`} />
+              <span>{isRefiningPrompts ? t('toolbar.refiningPrompts') : t('toolbar.refinePrompts')}</span>
+            </button>
+          )}
           <button
             onClick={onDownloadAll}
             disabled={videosWithUrl === 0 || isDownloading}

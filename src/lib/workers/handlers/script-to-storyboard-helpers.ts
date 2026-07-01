@@ -39,6 +39,65 @@ export function toPositiveInt(value: unknown): number | null {
   return n >= 0 ? n : null
 }
 
+/** 单个 clip 允许的最大分镜数（防止整集目标值异常放大单个 clip）。 */
+const MAX_PANELS_PER_CLIP = 60
+
+/**
+ * 把"整集目标分镜总数"按各 clip 的内容字符占比分配到每个 clip。
+ * - 每个 clip 至少 1 个分镜（避免某段剧情被压没）；
+ * - 最大余数法（largest remainder）保证各 clip 配额之和精确等于目标值；
+ * - targetTotal 不合法（undefined / <=0 / 非有限数）→ 返回空对象，调用方据此完全走旧逻辑（AI 自行判断数量）。
+ *
+ * @param clips 形如 [{ id, content }]，content 用于按字符长度计权
+ * @param targetTotal 用户指定的整集目标分镜总数
+ * @returns clipId -> 目标分镜数；空对象表示"不约束"
+ */
+export function allocatePanelCountsByClip(
+  clips: Array<{ id: string; content?: string | null }>,
+  targetTotal: number | undefined | null,
+): Record<string, number> {
+  const result: Record<string, number> = {}
+  const n = clips.length
+  if (n === 0) return result
+  if (!targetTotal || !Number.isFinite(targetTotal) || targetTotal <= 0) return result
+
+  // 目标值夹到 [clip 数, clip 数 × 单 clip 上限]：保证每 clip≥1，且不被异常放大
+  const total = Math.max(n, Math.min(Math.floor(targetTotal), n * MAX_PANELS_PER_CLIP))
+
+  // 各 clip 权重 = 内容字符数（至少 1，避免空内容拿不到配额）
+  const weights = clips.map((c) =>
+    Math.max(1, typeof c.content === 'string' ? c.content.trim().length : 0),
+  )
+  const weightSum = weights.reduce((sum, w) => sum + w, 0)
+
+  // 每 clip 先保底 1 个，剩余 (total - n) 按权重用最大余数法分配
+  const remaining = total - n
+  const exact = weights.map((w) => (remaining * w) / weightSum)
+  const extra = exact.map((q) => Math.floor(q))
+  let assigned = extra.reduce((sum, q) => sum + q, 0)
+  const byFraction = exact
+    .map((q, i) => ({ i, frac: q - Math.floor(q) }))
+    .sort((a, b) => b.frac - a.frac)
+  let cursor = 0
+  while (assigned < remaining && cursor < byFraction.length) {
+    extra[byFraction[cursor].i] += 1
+    assigned += 1
+    cursor += 1
+  }
+  // 极端权重导致仍有余量时轮转补齐，确保总和精确等于 total
+  let rover = 0
+  while (assigned < remaining) {
+    extra[rover % n] += 1
+    assigned += 1
+    rover += 1
+  }
+
+  clips.forEach((c, i) => {
+    result[c.id] = 1 + extra[i]
+  })
+  return result
+}
+
 function parsePanelCharacters(raw: string | null): string[] {
   if (!raw) return []
   try {

@@ -65,6 +65,9 @@
         "missingAssetsTip": "请先在",
         "missingAssetsTipLink": "中生成所有出场角色和场景的形象",
         "generating": "正在生成画面...",
-        "startGenerate": "确认并开始绘制 →"
+        "startGenerate": "确认并开始绘制 →",
+        "panelCountLabel": "分镜数量",
+        "panelCountPlaceholder": "留空自动",
+        "panelCountHint": "留空则由 AI 按剧情自动判断"
     }
 }

@@ -4,9 +4,10 @@ import { prisma } from '@/lib/prisma'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 import { isTaskActive } from '@/lib/task/service'
 import { reportTaskProgress } from '../shared'
-import { assertTaskActive, toSignedUrlIfCos, uploadVideoSourceToCos } from '../utils'
+import { assertTaskActive, uploadVideoSourceToCos } from '../utils'
 import { renderEditorProject } from '@/lib/video-editor/compose'
 import { getMediaObjectByPublicId } from '@/lib/media/service'
+import { getSignedObjectUrl } from '@/lib/storage'
 import type { VideoEditorProject, VideoClip, BgmClip, EditorConfig } from '@/features/video-editor/types/editor.types'
 
 type AnyObj = Record<string, unknown>
@@ -34,61 +35,59 @@ function extractMediaPublicId(src: string): string | null {
 }
 
 /**
- * 把 clip/bgm 的 src 归一为 worker 端可直接 fetch 的 COS presigned 绝对 URL。
- *
- * 工程里 src 可能是多种形态：
- *  - 裸 COS key（video/xxx.mp4）→ 直接签名；
- *  - 媒体短链 /m/<publicId>（或绝对 .../m/<publicId>）→ 查 media_objects 拿 storageKey 再签；
- *  - 签名代理 URL（含 key= 参数）→ 反解 key 重新签 COS 直连 URL；
- *  - 绝对 http(s)/data URL → 原样使用；
- *  - 其它 → 尝试当 key 签名，失败则抛 VIDEO_RENDER_MEDIA_URL_INVALID。
- *
- * 关键：相对 URL（/m/...、/api/...）会被 Node 的 fetch 判为 "Failed to parse URL / Invalid URL"
- * 瞬间挂掉任务，这里统一归一成绝对 URL，避免下游 compose/downloadToFile 再踩坑。
+ * 从各种 src 形态提取底层 COS storageKey（不含协议 / 代理前缀）。
+ *  - 裸 key（images/voice/video/…）→ 原样；
+ *  - /m/<publicId> 短链 → 查 media_objects.storageKey；
+ *  - /api/storage/sign?key=XXX → 反解 key（searchParams 自动 URL-decode）；
+ *  - /api/files/KEY（local 代理）→ decode KEY；
+ *  - 绝对 http(s)/data URL → 返回 null（不当 key，留给上层原样放行）；
+ *  - 其它 → 当 key 原样返回（交给签名方，无效 key 最终 fetch 会 404，但不至于抛 parse 错）。
  */
-async function resolveWorkerMediaUrl(src: string): Promise<string> {
-  // 1. 裸 COS key：直接签
-  if (isCosKey(src)) {
-    const signed = toSignedUrlIfCos(src, URL_TTL_SEC)
-    if (signed) return signed
-    throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: ${src.slice(0, 100)}`)
-  }
+async function extractStorageKey(src: string): Promise<string | null> {
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) return null
+  if (isCosKey(src)) return src
 
-  // 2. 媒体短链 /m/<publicId>：查 media_objects 拿 storageKey 再签
   const publicId = extractMediaPublicId(src)
   if (publicId) {
     const media = await getMediaObjectByPublicId(publicId)
-    if (media?.storageKey) {
-      const signed = toSignedUrlIfCos(media.storageKey, URL_TTL_SEC)
-      if (signed) return signed
-    }
-    throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: media publicId not resolvable: ${publicId}`)
+    return media?.storageKey ?? null
   }
 
-  // 3. 签名代理 URL（含 key= 参数）：反解出真实 key，重新签 COS 直连 URL
   if (src.includes('key=')) {
     try {
       const u = new URL(src, 'http://placeholder.local')
       const key = u.searchParams.get('key')
-      if (key && isCosKey(key)) {
-        const signed = toSignedUrlIfCos(key, URL_TTL_SEC)
-        if (signed) return signed
-      }
+      if (key) return key
     } catch {
-      // 解析失败则继续尝试后续路径
+      // 解析失败继续尝试后续路径
     }
   }
 
-  // 4. 绝对 http(s) / data URL：原样使用
+  const filesMatch = src.match(/\/api\/files\/(.+)$/)
+  if (filesMatch) return decodeURIComponent(filesMatch[1])
+
+  return src
+}
+
+/**
+ * 把 clip/bgm 的 src 归一为 worker 端可直接 fetch 的【绝对】COS presigned URL。
+ *
+ * ⚠️ 不能用 getSignedUrl / toSignedUrlIfCos：它们返回的是应用层代理相对 URL
+ * （/api/storage/sign?key=…），浏览器同源能访问，但 worker 的 fetch 拿到相对路径会抛
+ * "Failed to parse URL"。这里统一提取 storageKey 后用 getSignedObjectUrl 直签 MinIO
+ * presigned（绝对 URL，带 endpoint），worker 直连对象存储，彻底绕开 app 代理。
+ */
+async function resolveWorkerMediaUrl(src: string): Promise<string> {
+  // 绝对 http(s)/data URL：无需签名，原样放行
   if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
     return src
   }
 
-  // 5. 兜底：当作 key 尝试签名
-  const fallback = toSignedUrlIfCos(src, URL_TTL_SEC)
-  if (fallback) return fallback
-
-  throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: ${src.slice(0, 100)}`)
+  const key = await extractStorageKey(src)
+  if (key === null) {
+    throw new Error(`VIDEO_RENDER_MEDIA_URL_INVALID: ${src.slice(0, 100)}`)
+  }
+  return await getSignedObjectUrl(key, URL_TTL_SEC)
 }
 
 /** 把 clip 的视频/配音 src 解析为可直接 fetch 的 presigned URL。 */

@@ -25,6 +25,8 @@ Clip metadata JSON:
 Clip content:
 {clip_content}
 
+{panel_count_directive}
+
 Task:
 Create a coherent panel plan that covers the full clip content in chronological order.
 

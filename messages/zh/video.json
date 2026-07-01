@@ -81,6 +81,12 @@
     "completedShots": "{count} 个已生成",
     "failedShots": "{count} 个失败",
     "generateAll": "生成所有视频",
+    "refinePrompts": "智能修缮提示词",
+    "refiningPrompts": "修缮中...",
+    "refinePromptsHint": "用 AI 优化所有镜头的视频提示词，保证前后镜头动作、运镜、画面连贯衔接（特别处理首尾帧与单块拼接）",
+    "refineResultSuccess": "提示词修缮完成，成功 {succeeded} 个",
+    "refineResultPartial": "修缮完成：成功 {succeeded} 个，失败 {failed} 个",
+    "refineFailed": "修缮失败",
     "batchConfigTitle": "批量生成参数",
     "batchConfigDesc": "先选择模型与参数，再一键生成所有视频",
     "confirmGenerateAll": "确认并生成全部",
@@ -154,7 +160,8 @@
       "export": "导出视频",
       "rendering": "渲染中…",
       "download": "下载成片",
-      "reexport": "重新导出"
+      "reexport": "重新导出",
+      "syncNew": "同步新片段（{{count}}）"
     },
     "left": {
       "title": "当前片段",

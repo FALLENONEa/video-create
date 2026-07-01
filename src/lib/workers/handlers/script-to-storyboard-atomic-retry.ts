@@ -428,6 +428,9 @@ export async function runScriptToStoryboardAtomicRetry(params: {
       .replace('{characters_full_description}', filteredFullDescription)
       .replace('{props_description}', filteredPropsDescription)
       .replace('{clip_json}', clipJson)
+      // 原子重试是对单个 clip 的单步修复，不强制数量目标（重试入口本就不传数量）；
+      // 这里仅把占位符替换为空，避免 {panel_count_directive} 残留进 prompt。
+      .replace('{panel_count_directive}', '')
     const screenplay = parseScreenplay(params.clip.screenplay)
     if (screenplay) {
       phase1Prompt = phase1Prompt.replace('{clip_content}', `【剧本格式】\n${JSON.stringify(screenplay, null, 2)}`)

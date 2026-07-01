@@ -11,6 +11,8 @@ export type ScriptToStoryboardRunParams = {
   temperature?: number
   reasoning?: boolean
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
+  /** 整集目标分镜总数（可选）；缺省 → 由 AI 自行判断数量。 */
+  targetPanelCount?: number
 }
 
 export type ScriptToStoryboardRunResult = RunResult
@@ -79,6 +81,7 @@ export function useScriptToStoryboardRunStream({ projectId, episodeId }: UseScri
       temperature: params.temperature,
       reasoning: params.reasoning,
       reasoningEffort: params.reasoningEffort,
+      targetPanelCount: params.targetPanelCount,
       async: true,
       displayMode: 'detail',
     }),

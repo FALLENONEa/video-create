@@ -3,6 +3,7 @@
 import { logError as _ulogError } from '@/lib/logging/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import toast from 'react-hot-toast'
 import {
   VideoToolbar,
   type VideoGenerationOptionValue,
@@ -99,6 +100,7 @@ export function useVideoStageRuntime({
   onGenerateAllVideos,
   onBack,
   onUpdateVideoPrompt,
+  onRefineVideoPrompts,
   onUpdatePanelVideoModel,
   onOpenAssetLibraryForCharacter,
   onEnterEditor,
@@ -556,6 +558,23 @@ export function useVideoStageRuntime({
     isConfirming,
   ])
 
+  const [isRefiningPrompts, setIsRefiningPrompts] = useState(false)
+  const handleRefinePrompts = useCallback(async () => {
+    if (!onRefineVideoPrompts || isRefiningPrompts || isAnyTaskRunning) return
+    setIsRefiningPrompts(true)
+    try {
+      const { succeeded, failed } = await onRefineVideoPrompts()
+      const msg = failed > 0
+        ? t('toolbar.refineResultPartial', { succeeded, failed })
+        : t('toolbar.refineResultSuccess', { succeeded })
+      toast.success(msg)
+    } catch (error) {
+      toast.error(`${t('toolbar.refineFailed')}: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setIsRefiningPrompts(false)
+    }
+  }, [onRefineVideoPrompts, isRefiningPrompts, isAnyTaskRunning, t])
+
   return (
     <div className="space-y-6 pb-20">
       <VideoToolbar
@@ -566,6 +585,8 @@ export function useVideoStageRuntime({
         isAnyTaskRunning={isAnyTaskRunning}
         isDownloading={isDownloading}
         onGenerateAll={handleOpenBatchGenerateModal}
+        onRefinePrompts={onRefineVideoPrompts ? handleRefinePrompts : undefined}
+        isRefiningPrompts={isRefiningPrompts}
         onDownloadAll={handleDownloadAllVideos}
         onBack={onBack}
         onEnterEditor={onEnterEditor}

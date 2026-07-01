@@ -78,6 +78,11 @@ export type ScriptToStoryboardOrchestratorInput = {
     props?: PropAsset[]
   }
   promptTemplates: ScriptToStoryboardPromptTemplates
+  /**
+   * 每个 clip 的目标分镜数量（整集目标总数按各 clip 字符占比分配后的结果）。
+   * 整体缺省或某个 clip 无值时，不注入数量指令、由 AI 自行判断数量——完全等价旧行为。
+   */
+  targetPanelCountByClipId?: Record<string, number>
   runStep: (
     meta: ScriptToStoryboardStepMeta,
     prompt: string,
@@ -97,6 +102,35 @@ export type ScriptToStoryboardOrchestratorResult = {
     totalPanelCount: number
     totalStepCount: number
   }
+}
+
+/**
+ * 把"目标分镜数量"渲染成注入 phase1 plan prompt 的指令文本。
+ * 传入 undefined / null / 非正数 → 返回空串（占位符被替换为空，prompt 等价旧版）。
+ * 软目标：要求 AI 尽量贴近目标，但允许为保证关键画面覆盖与叙事连贯而浮动，绝不为凑数硬拆。
+ */
+export function buildPanelCountDirective(
+  targetCount: number | undefined | null,
+  locale: 'zh' | 'en' = 'zh',
+): string {
+  if (!targetCount || !Number.isFinite(targetCount) || targetCount <= 0) return ''
+  const n = Math.floor(targetCount)
+  if (locale === 'en') {
+    return [
+      '[Panel Count Directive - Highest Priority]',
+      `⚠️ This clip MUST produce approximately ${n} panels (target value). Stay as close to ${n} as possible while still covering every key moment:`,
+      '   - If the content is dense, merge minor shots to approach the target;',
+      '   - If the content is sparse, add atmosphere/reaction shots only when necessary — never split shots just to reach the number;',
+      `   - Treat ${n} as a strong target, not a rigid cap; deviate only to preserve narrative coherence.`,
+    ].join('\n')
+  }
+  return [
+    '【分镜数量强约束 - 最高优先级】',
+    `⚠️ 本片段必须生成约 ${n} 个分镜（目标值）。请在覆盖每个关键画面的前提下，尽量贴近 ${n} 这个数量：`,
+    '   - 内容密集时：合并次要镜头以贴近目标；',
+    '   - 内容稀疏时：仅在必要时增加氛围/反应镜头，绝不为凑数硬拆；',
+    `   - 把 ${n} 当作强目标而非死板上限，仅为维护叙事连贯时才可偏离。`,
+  ].join('\n')
 }
 
 
@@ -351,6 +385,10 @@ export async function runScriptToStoryboardOrchestrator(
         .replace('{characters_full_description}', filteredFullDescription)
         .replace('{props_description}', filteredPropsDescription)
         .replace('{clip_json}', clipJson)
+        .replace(
+          '{panel_count_directive}',
+          buildPanelCountDirective(input.targetPanelCountByClipId?.[clip.id], input.locale ?? 'zh'),
+        )
 
       const screenplay = parseScreenplay(clip.screenplay)
       if (screenplay) {

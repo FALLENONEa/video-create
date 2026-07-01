@@ -4,12 +4,14 @@ const {
   generateVideoMutateAsyncMock,
   batchGenerateVideosMutateAsyncMock,
   updateProjectPanelVideoPromptMutateAsyncMock,
+  refineVideoPromptsMutateAsyncMock,
   updateProjectClipMutateAsyncMock,
   updateProjectConfigMutateAsyncMock,
 } = vi.hoisted(() => ({
   generateVideoMutateAsyncMock: vi.fn(),
   batchGenerateVideosMutateAsyncMock: vi.fn(),
   updateProjectPanelVideoPromptMutateAsyncMock: vi.fn(),
+  refineVideoPromptsMutateAsyncMock: vi.fn(),
   updateProjectClipMutateAsyncMock: vi.fn(),
   updateProjectConfigMutateAsyncMock: vi.fn(),
 }))
@@ -27,12 +29,19 @@ vi.mock('@/lib/query/hooks', () => ({
   useUpdateProjectPanelVideoPrompt: () => ({
     mutateAsync: updateProjectPanelVideoPromptMutateAsyncMock,
   }),
+  useRefineProjectVideoPrompts: () => ({
+    mutateAsync: refineVideoPromptsMutateAsyncMock,
+  }),
   useUpdateProjectClip: () => ({
     mutateAsync: updateProjectClipMutateAsyncMock,
   }),
   useUpdateProjectConfig: () => ({
     mutateAsync: updateProjectConfigMutateAsyncMock,
   }),
+}))
+
+vi.mock('next-intl', () => ({
+  useLocale: () => 'zh',
 }))
 
 import { useWorkspaceVideoActions } from '@/app/[locale]/workspace/[projectId]/modes/novel-promotion/hooks/useWorkspaceVideoActions'
@@ -44,6 +53,7 @@ describe('useWorkspaceVideoActions', () => {
     generateVideoMutateAsyncMock.mockReset()
     batchGenerateVideosMutateAsyncMock.mockReset()
     updateProjectPanelVideoPromptMutateAsyncMock.mockReset()
+    refineVideoPromptsMutateAsyncMock.mockReset()
     updateProjectClipMutateAsyncMock.mockReset()
     updateProjectConfigMutateAsyncMock.mockReset()
     globalThis.alert = vi.fn()

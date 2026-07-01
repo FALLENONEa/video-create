@@ -83,3 +83,22 @@ export function useUpdateProjectPanelVideoPrompt(projectId: string) {
     },
   })
 }
+
+/**
+ * 修缮视频提示词（跨镜头连贯性优化）
+ * 调后端 LLM 修缮整集提示词，返回 { panelId, storyboardId, panelIndex, videoPrompt, firstLastFramePrompt }[]
+ */
+export function useRefineProjectVideoPrompts(projectId: string) {
+  return useMutation({
+    mutationFn: async (payload: { episodeId: string; locale: string }) =>
+      await requestJsonWithError(
+        `/api/novel-promotion/${projectId}/refine-video-prompts`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+        '修缮视频提示词失败',
+      ),
+  })
+}

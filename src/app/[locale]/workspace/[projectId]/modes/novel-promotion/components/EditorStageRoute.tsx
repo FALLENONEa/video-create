@@ -144,18 +144,52 @@ async function resolvePanelDurations(
   return new Map(entries)
 }
 
-function applyPanelDurationsToProject(
+/**
+ * 用当前最新的分镜面板刷新已保存工程的每个 clip：
+ *  - src：面板视频可能在存工程后才更新（口型同步完成、视频重新生成），旧工程里的 src 会指向
+ *    旧文件。这里按 panelKey 用 basePanels 的最新 videoUrl 覆盖，避免播放/导出到老视频。
+ *  - 配音轨：若该面板现在用口型同步视频（自带配音），清掉独立配音 attachment.audio，防止双音轨。
+ *    反之若仍是普通视频，保留原有配音（不新增，尊重用户在剪辑器里的编辑）。
+ *  - durationInFrames：用探测/存储得到的最新时长覆盖。
+ */
+function refreshSavedProjectFromPanels(
   project: VideoEditorProject,
+  panelsByKey: Map<string, EditorPanelDraft>,
   durations: Map<string, number>,
 ): VideoEditorProject {
   let changed = false
   const timeline = project.timeline.map((clip) => {
     const key = clip.metadata?.panelId || `${clip.metadata?.storyboardId ?? ''}-unknown`
+    const panel = panelsByKey.get(key)
+    let nextClip = clip
+
+    // 1. 刷新 src 到最新视频
+    if (panel && panel.videoUrl && panel.videoUrl !== clip.src) {
+      nextClip = { ...nextClip, src: panel.videoUrl }
+      changed = true
+    }
+
+    // 2. 口型同步视频自带配音 → 移除独立配音轨；普通视频 → 保留原配音（不新增，尊重用户编辑）
+    if (panel?.usesLipSyncVideo && nextClip.attachment?.audio) {
+      const { audio: _removed, ...restAttachment } = nextClip.attachment
+      void _removed
+      nextClip = {
+        ...nextClip,
+        attachment: Object.keys(restAttachment).length > 0 ? restAttachment : undefined,
+      }
+      changed = true
+    }
+
+    // 3. 刷新时长
     const duration = durations.get(key)
-    if (!duration) return clip
-    const durationInFrames = Math.max(1, Math.round(duration * project.config.fps))
-    const nextClip = { ...clip, durationInFrames, transition: undefined }
-    if (durationInFrames !== clip.durationInFrames || clip.transition) changed = true
+    if (duration) {
+      const durationInFrames = Math.max(1, Math.round(duration * project.config.fps))
+      if (durationInFrames !== nextClip.durationInFrames || nextClip.transition) {
+        nextClip = { ...nextClip, durationInFrames, transition: undefined }
+        changed = true
+      }
+    }
+
     return nextClip
   })
 
@@ -256,7 +290,8 @@ export default function EditorStageRoute() {
         }
 
         if (hasSavedTimeline && saved) {
-          setInitialProject(applyPanelDurationsToProject(saved, durationByPanel))
+          const panelsByKey = new Map(basePanels.map((p) => [panelKey(p), p]))
+          setInitialProject(refreshSavedProjectFromPanels(saved, panelsByKey, durationByPanel))
           return
         }
 

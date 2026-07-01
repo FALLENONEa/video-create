@@ -208,6 +208,7 @@ export default function EditorStageRoute() {
   const [initialProject, setInitialProject] = useState<VideoEditorProject | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [syncVersion, setSyncVersion] = useState(0)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   // 有视频源的面板（lipSyncVideoUrl 优先，回退 videoUrl）。提到 useMemo 供加载与"同步新片段"复用。
   const basePanels = useMemo(
@@ -323,7 +324,7 @@ export default function EditorStageRoute() {
     }
   }, [episodeId, episodeLoading, basePanels, voiceLinesByPanel, loadProject])
 
-  // basePanels 中尚未进当前工程的片段（按 panelKey 比对），用于"同步新片段"按钮
+  // basePanels 中尚未进当前工程的片段（按 panelKey 比对），仅用于内部计算追加项
   const newPanels = useMemo(() => {
     if (!initialProject) return []
     const existing = new Set(
@@ -332,33 +333,57 @@ export default function EditorStageRoute() {
     return basePanels.filter((p) => !existing.has(panelKey(p)))
   }, [basePanels, initialProject])
 
-  // 把新片段追加到当前工程末尾，保存到后端（后端会清空 renderStatus/outputUrl，
-  // 使旧的渲染结果失效），再 bump key 让 VideoEditorStage 重新挂载载入新工程。
-  // ⚠️ 必须先保存再 bump key：保存后后端 renderStatus=null，重挂载时 GET 拿到 null，
-  // 界面才会显示「导出」而非「下载成片」——否则用户会下载到旧的视频。
+  // 「同步最新视频」全量同步（常驻按钮，不靠 newPanels 判断是否显示）：
+  //  1. 刷新已有片段的 src/时长/配音 —— 用户在成片阶段重构/重新生成视频后，panelKey 不变、
+  //     videoUrl 变了，必须按 panelKey 用最新 basePanels 覆盖 clip.src，否则剪辑器一直用老视频；
+  //  2. 追加尚未进工程的新片段；
+  //  3. 保存到后端（后端清空 renderStatus/outputUrl 使旧渲染失效），再 bump key 重挂载。
+  //  ⚠️ 必须先保存再 bump key：保存后后端 renderStatus=null，重挂载 GET 拿到 null，
+  //  界面显示「导出」而非「下载成片」，避免用户下载到旧视频。
   const handleSyncNewClips = useCallback(async () => {
-    if (!episodeId || !initialProject || newPanels.length === 0) return
-    const newVoiceLines = newPanels.map((panel) => {
-      if (panel.usesLipSyncVideo) return undefined
-      const vl = voiceLinesByPanel.get(`${panel.storyboardId}-${panel.panelIndex ?? 'unknown'}`)
-      if (!vl?.audioUrl) return undefined
-      return { id: vl.id, speaker: vl.speaker, content: vl.content, audioUrl: vl.audioUrl }
-    })
-    const part = createProjectFromPanels(episodeId, newPanels, newVoiceLines)
-    const merged: VideoEditorProject = {
-      ...initialProject,
-      timeline: [...initialProject.timeline, ...part.timeline],
-    }
+    if (!episodeId || !initialProject || isSyncing) return
+    setIsSyncing(true)
     try {
-      await saveProject(merged)
-    } catch {
-      // 保存失败仍更新本地状态，让用户能手动保存；但不 bump key（避免显示陈旧的 completed）
+      // 1. 刷新已有片段（src / 时长 / 配音轨）到最新面板数据
+      const panelsByKey = new Map(basePanels.map((p) => [panelKey(p), p]))
+      const durationByPanel = await resolvePanelDurations(basePanels, initialProject, true)
+      const refreshed = refreshSavedProjectFromPanels(initialProject, panelsByKey, durationByPanel)
+
+      // 2. 追加尚未进工程的新片段
+      const existing = new Set(
+        refreshed.timeline.map((c) => c.metadata?.panelId || `${c.metadata?.storyboardId ?? ''}-unknown`),
+      )
+      const toAppend = basePanels.filter((p) => !existing.has(panelKey(p)))
+      let merged: VideoEditorProject = refreshed
+      if (toAppend.length > 0) {
+        const appendPanels = toAppend.map((p) => ({
+          ...p,
+          duration: durationByPanel.get(panelKey(p)) ?? DEFAULT_CLIP_DURATION_SEC,
+        }))
+        const appendVoiceLines = appendPanels.map((panel) => {
+          if (panel.usesLipSyncVideo) return undefined
+          const vl = voiceLinesByPanel.get(`${panel.storyboardId}-${panel.panelIndex ?? 'unknown'}`)
+          if (!vl?.audioUrl) return undefined
+          return { id: vl.id, speaker: vl.speaker, content: vl.content, audioUrl: vl.audioUrl }
+        })
+        const part = createProjectFromPanels(episodeId, appendPanels, appendVoiceLines)
+        merged = { ...refreshed, timeline: [...refreshed.timeline, ...part.timeline] }
+      }
+
+      // 3. 保存 + 重挂载
+      try {
+        await saveProject(merged)
+      } catch {
+        // 保存失败仍更新本地状态，让用户能手动保存；但不 bump key（避免显示陈旧的 completed）
+        setInitialProject(merged)
+        return
+      }
       setInitialProject(merged)
-      return
+      setSyncVersion((v) => v + 1)
+    } finally {
+      setIsSyncing(false)
     }
-    setInitialProject(merged)
-    setSyncVersion((v) => v + 1)
-  }, [initialProject, newPanels, voiceLinesByPanel, episodeId, saveProject])
+  }, [episodeId, initialProject, isSyncing, basePanels, voiceLinesByPanel, saveProject])
 
   if (!episodeId) return null
   if (loading) {
@@ -377,6 +402,7 @@ export default function EditorStageRoute() {
       initialProject={initialProject}
       newClipCount={newPanels.length}
       onSyncNewClips={handleSyncNewClips}
+      isSyncing={isSyncing}
       onBack={() => runtime.onStageChange('videos')}
     />
   )

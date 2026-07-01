@@ -17,6 +17,7 @@ interface VideoEditorStageProps {
     initialProject?: VideoEditorProject
     newClipCount?: number
     onSyncNewClips?: () => void
+    isSyncing?: boolean
     onBack?: () => void
 }
 
@@ -41,6 +42,7 @@ export function VideoEditorStage({
     initialProject,
     newClipCount,
     onSyncNewClips,
+    isSyncing,
     onBack
 }: VideoEditorStageProps) {
     const t = useTranslations('video')
@@ -176,12 +178,18 @@ export function VideoEditorStage({
                     {currentTime} / {totalTime}
                 </span>
 
-                {newClipCount && newClipCount > 0 && onSyncNewClips ? (
+                {onSyncNewClips ? (
                     <button
                         onClick={onSyncNewClips}
-                        className="glass-btn-base glass-btn-secondary px-4 py-2"
+                        disabled={isSyncing}
+                        className="glass-btn-base glass-btn-secondary px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={t('editor.toolbar.syncHint')}
                     >
-                        {t('editor.toolbar.syncNew', { count: newClipCount })}
+                        {isSyncing
+                            ? t('editor.toolbar.syncing')
+                            : newClipCount && newClipCount > 0
+                                ? t('editor.toolbar.syncNew', { count: newClipCount })
+                                : t('editor.toolbar.syncLatest')}
                     </button>
                 ) : null}
 

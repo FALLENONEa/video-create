@@ -161,7 +161,10 @@
       "rendering": "Rendering…",
       "download": "Download",
       "reexport": "Re-export",
-      "syncNew": "Sync new clips ({count})"
+      "syncNew": "Sync new clips ({count})",
+      "syncLatest": "Re-sync latest videos",
+      "syncing": "Syncing…",
+      "syncHint": "Pull the latest videos from the video stage back into the timeline (including rebuilt / lip-synced clips). Re-export after syncing."
     },
     "left": {
       "title": "Current Clips",

@@ -158,7 +158,7 @@ export default function EditorStageRoute() {
   const { projectId, episodeId } = useWorkspaceProvider()
   const runtime = useWorkspaceStageRuntime()
   const { storyboards, voiceLines, isLoading: episodeLoading } = useWorkspaceEpisodeStageData()
-  const { loadProject } = useEditorActions({ projectId, episodeId: episodeId || '' })
+  const { loadProject, saveProject } = useEditorActions({ projectId, episodeId: episodeId || '' })
 
   const [initialProject, setInitialProject] = useState<VideoEditorProject | undefined>(undefined)
   const [loading, setLoading] = useState(true)
@@ -286,8 +286,11 @@ export default function EditorStageRoute() {
     return basePanels.filter((p) => !existing.has(panelKey(p)))
   }, [basePanels, initialProject])
 
-  // 把新片段追加到当前工程末尾，并 bump key 让 VideoEditorStage 重新挂载载入新工程
-  const handleSyncNewClips = useCallback(() => {
+  // 把新片段追加到当前工程末尾，保存到后端（后端会清空 renderStatus/outputUrl，
+  // 使旧的渲染结果失效），再 bump key 让 VideoEditorStage 重新挂载载入新工程。
+  // ⚠️ 必须先保存再 bump key：保存后后端 renderStatus=null，重挂载时 GET 拿到 null，
+  // 界面才会显示「导出」而非「下载成片」——否则用户会下载到旧的视频。
+  const handleSyncNewClips = useCallback(async () => {
     if (!episodeId || !initialProject || newPanels.length === 0) return
     const newVoiceLines = newPanels.map((panel) => {
       if (panel.usesLipSyncVideo) return undefined
@@ -296,9 +299,20 @@ export default function EditorStageRoute() {
       return { id: vl.id, speaker: vl.speaker, content: vl.content, audioUrl: vl.audioUrl }
     })
     const part = createProjectFromPanels(episodeId, newPanels, newVoiceLines)
-    setInitialProject((prev) => (prev ? { ...prev, timeline: [...prev.timeline, ...part.timeline] } : prev))
+    const merged: VideoEditorProject = {
+      ...initialProject,
+      timeline: [...initialProject.timeline, ...part.timeline],
+    }
+    try {
+      await saveProject(merged)
+    } catch {
+      // 保存失败仍更新本地状态，让用户能手动保存；但不 bump key（避免显示陈旧的 completed）
+      setInitialProject(merged)
+      return
+    }
+    setInitialProject(merged)
     setSyncVersion((v) => v + 1)
-  }, [initialProject, newPanels, voiceLinesByPanel, episodeId])
+  }, [initialProject, newPanels, voiceLinesByPanel, episodeId, saveProject])
 
   if (!episodeId) return null
   if (loading) {

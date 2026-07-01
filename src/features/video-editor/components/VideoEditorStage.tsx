@@ -192,7 +192,7 @@ export function VideoEditorStage({
                     {isDirty ? t('editor.toolbar.saveDirty') : t('editor.toolbar.saved')}
                 </button>
 
-                {renderStatus === 'completed' && outputUrl ? (
+                {renderStatus === 'completed' && outputUrl && !isDirty ? (
                     <button
                         onClick={handleDownload}
                         className="glass-btn-base glass-btn-tone-success px-4 py-2"

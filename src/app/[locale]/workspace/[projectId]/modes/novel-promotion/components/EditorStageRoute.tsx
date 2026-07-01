@@ -112,6 +112,17 @@ async function resolvePanelDurations(
   probeMissing: boolean,
 ): Promise<Map<string, number>> {
   const entries = await Promise.all(panels.map(async (panel) => {
+    // ⚠️ 口型同步视频(usesLipSyncVideo)的时长 ≠ 原视频时长：口型同步会按配音长度截断/删减。
+    // panel.duration 和 saved 里存的都是「原视频时长」，对口型同步视频不可信，
+    // 必须直接探测 panel.videoUrl（此时就是 lipSyncVideoUrl）拿真实时长。
+    if (panel.usesLipSyncVideo) {
+      const probed = await probeVideoDurationWithRetry(panel.videoUrl)
+      if (probed && probed > SHORT_FALLBACK_DURATION_SEC) {
+        return [panelKey(panel), probed] as const
+      }
+      // 探测失败才退回 stored/saved（有总比没有强）
+    }
+
     const storedDuration = normalizeDurationSec(panel.duration)
     if (storedDuration && (!probeMissing || storedDuration > SHORT_FALLBACK_DURATION_SEC)) {
       return [panelKey(panel), storedDuration] as const
